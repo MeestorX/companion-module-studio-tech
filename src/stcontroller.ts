@@ -1,5 +1,6 @@
 import dgram from 'dgram'
 import type { DeviceInfo } from './types.js'
+import { CMD_MIC_PRE_BUS } from './types.js'
 
 /**
  * StController UDP packet builder + sender
@@ -76,29 +77,39 @@ export class StController {
 	 * ---------------------------- */
 
 	/**
-	 * cmdId and subId are passed directly; params contains values for that action.
+	 * cmdId and settingId are passed directly; params contains values for that action.
 	 */
 	public async sendAwaitAck(
 		model: string,
 		cmdId: number,
-		subId: number | null,
+		settingId: number | null,
 		value: unknown,
 		destIp: string,
 		addLen: boolean = true,
 	): Promise<Buffer> {
 		const timeoutMs = 2000
 
-		// Build data block: [len, subId, value...]
+		// Build data block: [len, settingId, value...]
 		let dataBlock: number[] = []
-		if (subId !== null) dataBlock = [subId & 0xff]
+		if (settingId !== null) dataBlock = [settingId & 0xff]
 		if (value !== null) dataBlock = [...dataBlock, ...StController.buildValueBytes(value)]
 
 		// Build payload: [0x5A, cmdId, payloadLen, ...dataBlock, crc]
 		let payloadBody: number[] = [0x5a, cmdId & 0xff]
-		if (addLen) payloadBody.push(dataBlock.length)
+		if (cmdId === CMD_MIC_PRE_BUS) payloadBody = [...payloadBody, 0x00] // additional "bus_chan" parameter for cmd_mic_pre_bus command
+
+		if (addLen) payloadBody = [...payloadBody, dataBlock.length]
 		payloadBody = [...payloadBody, ...dataBlock]
+		console.log(
+			'payloadBody:',
+			payloadBody.map((b) => b.toString(16).padStart(2, '0')),
+		)
 		const crc = StController.crc8DvbS2(payloadBody)
 		const payloadWithCrc = [...payloadBody, crc]
+		console.log(
+			'payLoadWithCrc:',
+			payloadWithCrc.map((b) => b.toString(16).padStart(2, '0')),
+		)
 
 		// Header total length = header (24 bytes) + payloadWithCrc length
 		const totalLen = 24 + payloadWithCrc.length
@@ -141,9 +152,19 @@ export class StController {
 	 * ---------------------------- */
 
 	private static buildValueBytes(value: unknown): number[] {
-		if (typeof value === 'number') return [value & 0xff]
 		if (typeof value === 'boolean') return [value ? 1 : 0]
 		if (Array.isArray(value)) return value.map((v) => Number(v) & 0xff)
+		if (typeof value === 'number') {
+			// Handle 24-bit RGB numbers
+			if (value > 0xff) {
+				return [
+					(value >> 16) & 0xff, // red
+					(value >> 8) & 0xff, // green
+					value & 0xff, // blue
+				]
+			}
+			return [value & 0xff]
+		}
 		throw new Error(`Unsupported value type for STcontroller: ${value}`)
 	}
 

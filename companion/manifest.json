@@ -3,7 +3,7 @@
 	"name": "companion-module-studio-tech",
 	"shortname": "studio-tech",
 	"description": "A Companion module for controlling Studio Technologies devices.",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"license": "MIT",
 	"repository": "git+https://github.com/MeestorX/companion-module-studio-tech.git",
 	"bugs": "https://github.com/MeestorX/companion-module-studio-tech/issues",

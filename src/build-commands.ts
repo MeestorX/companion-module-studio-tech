@@ -1,5 +1,5 @@
 /**
- * companion-builder.ts
+ * build-commands.ts
  * - Loads ./devices/*.json (UI schemas)
  * - Produces Companion action definitions and feedbacks
  *
@@ -39,15 +39,17 @@ export function loadUiSchemas(dir = devicesFolder): Record<string, any> {
 	return out
 }
 
-export function buildCompanionActionsFromDir(
+export function buildActions(
 	dir = devicesFolder,
-	sendFn?: (model: string, cmdId: number, subId: number, value: any) => Promise<void>,
+	sendFn?: (model: string, cmdId: number, settingId: number, value: any) => Promise<void>,
 ): CompanionActionDefinitions {
 	const schemas = loadUiSchemas(dir)
 	const actions: Record<string, any> = {}
 
 	for (const [model, schema] of Object.entries(schemas)) {
 		const actionDef = schema.actions as Array<UiSetting & { cmd_id: number; id: number }>
+		if (!actionDef) return actions
+
 		for (const s of actionDef) {
 			const actionId = `${model}_${s.id}`
 			const option: any = {
@@ -85,13 +87,16 @@ export function buildCompanionActionsFromDir(
 	return actions
 }
 
-export function buildFeedbacksFromDir(dir = devicesFolder): CompanionFeedbackDefinitions {
+export function buildFeedbacks(dir = devicesFolder): CompanionFeedbackDefinitions {
 	const schemas = loadUiSchemas(dir)
 	const feedbacks: Record<string, any> = {}
 
 	for (const [model, schema] of Object.entries(schemas)) {
-		const actions = schema.actions as Array<UiSetting & { cmd_id: number; id: number }>
-		for (const s of actions) {
+		const feedbackDef = schema.feedbacks as Array<UiSetting & { cmd_id: number; id: number }>
+		console.log('feedbackDef:', JSON.stringify(feedbackDef, null, 2))
+		if (!feedbackDef) return feedbacks
+
+		for (const s of feedbackDef) {
 			const fbId = `${model}_${s.id}_state`
 			feedbacks[fbId] = {
 				name: `${model}: ${s.label} state`,

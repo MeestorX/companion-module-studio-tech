@@ -3,24 +3,11 @@ export interface CompanionInputChoice {
 	label: string
 }
 
-export interface CompanionOption {
-	type: string
-	label: string
-	id: string
-	default: string | number | boolean
-	choices?: CompanionInputChoice[]
-}
-
 export interface DeviceSetting {
 	type: string
 	label: string
 	default: string | number | boolean
 	choices?: CompanionInputChoice[]
-}
-
-export interface DeviceSchema {
-	model: string
-	settings: Record<string, DeviceSetting>
 }
 
 export interface DeviceInfo {
@@ -30,3 +17,5 @@ export interface DeviceInfo {
 	mac?: string
 	serial?: string
 }
+
+export const CMD_MIC_PRE_BUS = 0x12

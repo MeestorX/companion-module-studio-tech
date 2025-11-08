@@ -1,0 +1,32 @@
+{
+	"model": "391",
+	"actions": [
+		{
+			"cmd_id": 9,
+			"id": 25,
+			"name": "Alerting State",
+			"label": "On/Off",
+			"type": "checkbox",
+			"default": false,
+			"tooltip": "Turn alerting state on or off"
+		},
+		{
+			"cmd_id": 13,
+			"id": 4,
+			"name": "Light Color Mode 1",
+			"label": "Color",
+			"type": "colorpicker",
+			"default": "#000000",
+			"tooltip": "Set RGB color for Light Color Mode 1"
+		},
+		{
+			"cmd_id": 13,
+			"id": 15,
+			"name": "Light Color Mode 2",
+			"label": "Color",
+			"type": "colorpicker",
+			"default": "#000000",
+			"tooltip": "Set RGB color for Light Color Mode 2"
+		}
+	]
+}

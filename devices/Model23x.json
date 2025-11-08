@@ -1,0 +1,30 @@
+{
+	"model": "23x",
+	"actions": [
+		{
+			"cmd_id": 18,
+			"id": 1,
+			"name": "Microphone Preamplifier",
+			"label": "Gain (dB)",
+			"type": "number",
+			"min": 20,
+			"max": 65,
+			"step": 1,
+			"default": 20,
+			"tooltip": "Set microphone preamplifier gain (20–65 dB)"
+		},
+		{
+			"cmd_id": 18,
+			"id": 2,
+			"name": "Microphone Preamplifier",
+			"label": "Phantom Power",
+			"type": "dropdown",
+			"choices": [
+				{ "id": 0, "label": "Off" },
+				{ "id": 48, "label": "On (48 V)" }
+			],
+			"default": 0,
+			"tooltip": "Enable or disable 48 V phantom power"
+		}
+	]
+}
