@@ -1,0 +1,37 @@
+{
+	"model": "207",
+	"actions": [
+		{
+			"cmd_id": 7,
+			"id": 16,
+			"name": "Main Button",
+			"label": "Mode",
+			"type": "dropdown",
+			"choices": [
+				{ "id": 0, "label": "Push To Mute" },
+				{ "id": 1, "label": "Push To Talk" },
+				{ "id": 2, "label": "Latching" },
+				{ "id": 3, "label": "Push To Talk/Tap To Latch" },
+				{ "id": 9, "label": "Push To Mute/Tap To Latch" },
+				{ "id": 11, "label": "Always On" }
+			],
+			"default": 0,
+			"tooltip": "Set the operation mode of the main button"
+		},
+		{
+			"cmd_id": 7,
+			"id": 17,
+			"name": "Talkback Button",
+			"label": "Mode",
+			"type": "dropdown",
+			"choices": [
+				{ "id": 1, "label": "Push To Talk" },
+				{ "id": 2, "label": "Latching" },
+				{ "id": 3, "label": "Push To Talk/Tap To Latch" },
+				{ "id": 4, "label": "Disabled" }
+			],
+			"default": 1,
+			"tooltip": "Set the operation mode of the talkback button"
+		}
+	]
+}

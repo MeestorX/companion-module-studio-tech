@@ -1,16 +1,16 @@
 {
-	"id": "your-module-name",
-	"name": "your-module-name",
-	"shortname": "module-shortname",
-	"description": "A short one line description of your module",
-	"version": "0.0.0",
+	"id": "companion-module-studio-tech",
+	"name": "companion-module-studio-tech",
+	"shortname": "studio-tech",
+	"description": "A Companion module for controlling Studio Technologies devices.",
+	"version": "0.1.0",
 	"license": "MIT",
-	"repository": "git+https://github.com/bitfocus/companion-module-your-module-name.git",
-	"bugs": "https://github.com/bitfocus/companion-module-your-module-name/issues",
+	"repository": "git+https://github.com/MeestorX/companion-module-studio-tech.git",
+	"bugs": "https://github.com/MeestorX/companion-module-studio-tech/issues",
 	"maintainers": [
 		{
-			"name": "Your name",
-			"email": "Your email"
+			"name": "Andrew Broughton",
+			"email": "andy@checkcheckonetwo.com"
 		}
 	],
 	"runtime": {
@@ -20,7 +20,21 @@
 		"entrypoint": "../dist/main.js"
 	},
 	"legacyIds": [],
-	"manufacturer": "Your company",
-	"products": ["Your product"],
-	"keywords": []
+	"manufacturer": "Studio Technologies",
+	"products": [
+		"Model 207",
+		"Model 209",
+		"Model 232",
+		"Model 234",
+		"Model 236",
+		"Model 391",
+		"Model 392",
+		"Model 5205",
+		"Model 5364",
+		"Model 5365",
+		"Model 5401A",
+		"Model 5402",
+		"ZEVO"
+	],
+	"keywords": ["Studio Technologies", "Studio Tech", "Intercom", "Dante"]
 }

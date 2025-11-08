@@ -4,9 +4,11 @@ import { UpdateVariableDefinitions } from './variables.js'
 import { UpgradeScripts } from './upgrades.js'
 import { UpdateActions } from './actions.js'
 import { UpdateFeedbacks } from './feedbacks.js'
+import { StController } from './stcontroller.js'
 
 export class ModuleInstance extends InstanceBase<ModuleConfig> {
 	config!: ModuleConfig // Setup in init()
+	stController!: StController
 
 	constructor(internal: unknown) {
 		super(internal)
@@ -14,7 +16,7 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 
 	async init(config: ModuleConfig): Promise<void> {
 		this.config = config
-
+		this.stController = new StController()
 		this.updateStatus(InstanceStatus.Ok)
 
 		this.updateActions() // export actions
