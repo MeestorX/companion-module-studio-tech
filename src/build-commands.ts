@@ -44,7 +44,6 @@ export function buildCompanionActionsFromDir(
 	sendFn?: (model: string, cmdId: number, subId: number, value: any) => Promise<void>,
 ): CompanionActionDefinitions {
 	const schemas = loadUiSchemas(dir)
-	console.log('schemas:', schemas)
 	const actions: Record<string, any> = {}
 
 	for (const [model, schema] of Object.entries(schemas)) {

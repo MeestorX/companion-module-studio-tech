@@ -3,7 +3,7 @@
 	"name": "companion-module-studio-tech",
 	"shortname": "studio-tech",
 	"description": "A Companion module for controlling Studio Technologies devices.",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"license": "MIT",
 	"repository": "git+https://github.com/MeestorX/companion-module-studio-tech.git",
 	"bugs": "https://github.com/MeestorX/companion-module-studio-tech/issues",
@@ -21,20 +21,6 @@
 	},
 	"legacyIds": [],
 	"manufacturer": "Studio Technologies",
-	"products": [
-		"Model 207",
-		"Model 209",
-		"Model 232",
-		"Model 234",
-		"Model 236",
-		"Model 391",
-		"Model 392",
-		"Model 5205",
-		"Model 5364",
-		"Model 5365",
-		"Model 5401A",
-		"Model 5402",
-		"ZEVO"
-	],
+	"products": ["ST Dante Products"],
 	"keywords": ["Studio Technologies", "Studio Tech", "Intercom", "Dante"]
 }

@@ -15,12 +15,15 @@ export function UpdateActions(self: ModuleInstance): void {
 	const sendFn = async (model: string, cmdId: number, subId: number, value: any) => {
 		// Map commandName -> cmdId and param mapping using the *_commands.json
 		// For demo: just log
-		console.log('Would send to', model, cmdId, subId, value)
-		await self.stController.sendAwaitAck({ model, cmdId, subId, value, destIp: '192.168.1.100' })
+		console.log('Sending', model, cmdId, subId, value, `to Model${model} at ${self.config.host}`)
+		console.log(
+			`Reply from Model${model}`,
+			await self.stController.sendAwaitAck(model, cmdId, subId, value, self.config.host),
+		)
 	}
 
 	const actions = buildCompanionActionsFromDir(devicesFolder, sendFn)
-	console.log('Actions built:', Object.keys(actions))
+	console.log('Actions built:', Object.keys(actions).length)
 
 	self.setActionDefinitions(actions)
 }

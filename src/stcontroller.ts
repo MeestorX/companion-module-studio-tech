@@ -5,13 +5,10 @@ import type { DeviceInfo } from './types.js'
  * StController UDP packet builder + sender
  */
 export class StController {
-	private readonly defaultPort = 8700
-	private readonly discoveryPort = 8700
-	private readonly broadcastAddr: string
+	private readonly defaultPort: number = 8700
+	private readonly broadcastAddr: string = '255.255.255.255'
 
-	constructor(options: { broadcast?: string } = {}) {
-		this.broadcastAddr = options.broadcast ?? '255.255.255.255'
-	}
+	constructor() {}
 
 	/* ----------------------------
 	 * Discovery
@@ -40,7 +37,7 @@ export class StController {
 			...Buffer.from('Studio-Technologies-Discovery\0'),
 		])
 
-		socket.send(discoveryPacket, this.discoveryPort, this.broadcastAddr)
+		socket.send(discoveryPacket, this.defaultPort, this.broadcastAddr)
 
 		return await new Promise<DeviceInfo[]>((resolve) => {
 			const timer = setTimeout(() => {
@@ -79,28 +76,27 @@ export class StController {
 	 * ---------------------------- */
 
 	/**
-	 * Send command using the new UI-based definition:
 	 * cmdId and subId are passed directly; params contains values for that action.
 	 */
-	public async sendAwaitAck(opts: {
-		model: string
-		cmdId: number
-		subId: number
-		value: unknown
-		destIp: string
-		timeoutMs?: number
-		port?: number
-	}): Promise<Buffer> {
-		const { cmdId, subId, value, destIp } = opts
-		const timeoutMs = opts.timeoutMs ?? 2000
-		const destPort = opts.port ?? this.defaultPort
+	public async sendAwaitAck(
+		model: string,
+		cmdId: number,
+		subId: number | null,
+		value: unknown,
+		destIp: string,
+		addLen: boolean = true,
+	): Promise<Buffer> {
+		const timeoutMs = 2000
 
 		// Build data block: [len, subId, value...]
-		const valueBytes: number[] = StController.buildValueBytes(value)
-		const dataBlock = [subId & 0xff, ...valueBytes]
+		let dataBlock: number[] = []
+		if (subId !== null) dataBlock = [subId & 0xff]
+		if (value !== null) dataBlock = [...dataBlock, ...StController.buildValueBytes(value)]
 
 		// Build payload: [0x5A, cmdId, payloadLen, ...dataBlock, crc]
-		const payloadBody: number[] = [0x5a, cmdId & 0xff, dataBlock.length, ...dataBlock]
+		let payloadBody: number[] = [0x5a, cmdId & 0xff]
+		if (addLen) payloadBody.push(dataBlock.length)
+		payloadBody = [...payloadBody, ...dataBlock]
 		const crc = StController.crc8DvbS2(payloadBody)
 		const payloadWithCrc = [...payloadBody, crc]
 
@@ -114,7 +110,7 @@ export class StController {
 		return await new Promise<Buffer>((resolve, reject) => {
 			const timer = setTimeout(() => {
 				socket.close()
-				reject(new Error(`Timeout waiting for ACK from ${destIp}:${destPort}`))
+				reject(new Error(`Timeout waiting for ACK from Model${model} at ${destIp}:${this.defaultPort}`))
 			}, timeoutMs)
 
 			socket.once('error', (err) => {
@@ -129,8 +125,8 @@ export class StController {
 				resolve(msg)
 			})
 
-			console.log('Sending', packet, `to ${destIp}:${destPort}`)
-			socket.send(packet, destPort, destIp, (err) => {
+			console.log('Sending', packet, `to Model${model} at ${destIp}:${this.defaultPort}`)
+			socket.send(packet, this.defaultPort, destIp, (err) => {
 				if (err) {
 					clearTimeout(timer)
 					socket.close()
@@ -189,5 +185,13 @@ export class StController {
 			}
 		}
 		return crc
+	}
+
+	public async getAllSettings(model: string, destIp: string): Promise<Buffer> {
+		return await this.sendAwaitAck(model, 0x0a, null, null, destIp, false)
+	}
+
+	public async resetDevice(model: string, destIp: string): Promise<Buffer> {
+		return await this.sendAwaitAck(model, 0x0e, 0x00, null, destIp, false)
 	}
 }
