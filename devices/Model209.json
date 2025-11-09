@@ -5,132 +5,177 @@
 			"cmd_id": 13,
 			"id": 2,
 			"name": "Remote Control Inputs",
-			"label": "State",
-			"type": "dropdown",
-			"choices": [
-				{ "id": 0, "label": "Input 1 Off / Input 2 Off" },
-				{ "id": 1, "label": "Input 1 On / Input 2 Off" },
-				{ "id": 2, "label": "Input 1 Off / Input 2 On" },
-				{ "id": 3, "label": "Input 1 On / Input 2 On" }
-			],
-			"default": 0,
-			"tooltip": "Set remote control input states for channels 1 and 2"
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Input 1 Off / Input 2 Off" },
+						{ "id": 1, "label": "Input 1 On / Input 2 Off" },
+						{ "id": 2, "label": "Input 1 Off / Input 2 On" },
+						{ "id": 3, "label": "Input 1 On / Input 2 On" }
+					],
+					"default": 0,
+					"tooltip": "Set remote control input states for channels 1 and 2"
+				}
+			]
 		},
 		{
 			"cmd_id": 13,
 			"id": 3,
 			"name": "Tally Out",
-			"label": "Mode",
-			"type": "dropdown",
-			"choices": [
-				{ "id": 0, "label": "Tally 1 and 2 Off" },
-				{ "id": 1, "label": "Tally 1 On" },
-				{ "id": 2, "label": "Tally 2 On" }
-			],
-			"default": 0,
-			"tooltip": "Set tally output state"
+			"options": [
+				{
+					"id": "value",
+					"label": "Mode",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Tally 1 and 2 Off" },
+						{ "id": 1, "label": "Tally 1 On" },
+						{ "id": 2, "label": "Tally 2 On" }
+					],
+					"default": 0,
+					"tooltip": "Set tally output state"
+				}
+			]
 		},
 		{
 			"cmd_id": 13,
 			"id": 4,
-			"name": "Encoder",
-			"label": "Position",
-			"type": "number",
-			"min": 0,
-			"max": 31,
-			"step": 1,
-			"default": 0,
-			"tooltip": "Set encoder position (0–31)"
+			"name": "Encoder Position",
+			"options": [
+				{
+					"id": "value",
+					"label": "Position",
+					"type": "number",
+					"min": 0,
+					"max": 31,
+					"step": 1,
+					"default": 0,
+					"tooltip": "Set encoder position (0–31)"
+				}
+			]
 		},
 		{
 			"cmd_id": 13,
 			"id": 5,
-			"name": "Encoder",
-			"label": "State",
-			"type": "dropdown",
-			"choices": [
-				{ "id": 0, "label": "Off" },
-				{ "id": 1, "label": "On" },
-				{ "id": 2, "label": "Pushed" }
-			],
-			"default": 0,
-			"tooltip": "Set encoder state"
+			"name": "Encoder State",
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" },
+						{ "id": 2, "label": "Pushed" }
+					],
+					"default": 0,
+					"tooltip": "Set encoder state"
+				}
+			]
 		},
 		{
 			"cmd_id": 13,
 			"id": 6,
-			"name": "Encoder",
-			"label": "Color",
-			"type": "colorpicker",
-			"default": "#000000",
-			"tooltip": "Set encoder RGB color (0–255 per channel)"
+			"name": "Encoder Color",
+			"options": [
+				{
+					"id": "value",
+					"label": "Color",
+					"type": "colorpicker",
+					"default": "#000000",
+					"tooltip": "Set encoder RGB color"
+				}
+			]
 		},
 		{
 			"cmd_id": 13,
 			"id": 7,
 			"name": "Rx Channel 1",
-			"label": "Dim",
-			"type": "dropdown",
-			"choices": [
-				{ "id": 0, "label": "0dB" },
-				{ "id": 1, "label": "1.5dB" },
-				{ "id": 2, "label": "3dB" },
-				{ "id": 3, "label": "4.5dB" },
-				{ "id": 4, "label": "6dB" },
-				{ "id": 5, "label": "7.5dB" },
-				{ "id": 6, "label": "9dB" },
-				{ "id": 7, "label": "10.5dB" },
-				{ "id": 8, "label": "12dB" },
-				{ "id": 9, "label": "13.5dB" },
-				{ "id": 10, "label": "15dB" }
-			],
-			"default": 0,
-			"tooltip": "Set Rx Channel 1 dim amount"
+			"options": [
+				{
+					"id": "value",
+					"label": "Dim",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "0dB" },
+						{ "id": 1, "label": "1.5dB" },
+						{ "id": 2, "label": "3dB" },
+						{ "id": 3, "label": "4.5dB" },
+						{ "id": 4, "label": "6dB" },
+						{ "id": 5, "label": "7.5dB" },
+						{ "id": 6, "label": "9dB" },
+						{ "id": 7, "label": "10.5dB" },
+						{ "id": 8, "label": "12dB" },
+						{ "id": 9, "label": "13.5dB" },
+						{ "id": 10, "label": "15dB" }
+					],
+					"default": 0,
+					"tooltip": "Set Rx Channel 1 dim amount"
+				}
+			]
 		},
 		{
 			"cmd_id": 13,
 			"id": 8,
 			"name": "Rx Channel 2",
-			"label": "Dim",
-			"type": "dropdown",
-			"choices": [
-				{ "id": 0, "label": "0dB" },
-				{ "id": 1, "label": "1.5dB" },
-				{ "id": 2, "label": "3dB" },
-				{ "id": 3, "label": "4.5dB" },
-				{ "id": 4, "label": "6dB" },
-				{ "id": 5, "label": "7.5dB" },
-				{ "id": 6, "label": "9dB" },
-				{ "id": 7, "label": "10.5dB" },
-				{ "id": 8, "label": "12dB" },
-				{ "id": 9, "label": "13.5dB" },
-				{ "id": 10, "label": "15dB" }
-			],
-			"default": 0,
-			"tooltip": "Set Rx Channel 2 dim amount"
+			"options": [
+				{
+					"id": "value",
+					"label": "Dim",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "0dB" },
+						{ "id": 1, "label": "1.5dB" },
+						{ "id": 2, "label": "3dB" },
+						{ "id": 3, "label": "4.5dB" },
+						{ "id": 4, "label": "6dB" },
+						{ "id": 5, "label": "7.5dB" },
+						{ "id": 6, "label": "9dB" },
+						{ "id": 7, "label": "10.5dB" },
+						{ "id": 8, "label": "12dB" },
+						{ "id": 9, "label": "13.5dB" },
+						{ "id": 10, "label": "15dB" }
+					],
+					"default": 0,
+					"tooltip": "Set Rx Channel 2 dim amount"
+				}
+			]
 		},
 		{
 			"cmd_id": 13,
 			"id": 9,
 			"name": "Rx Channels",
-			"label": "Save Dim Values",
-			"type": "checkbox",
-			"default": false,
-			"tooltip": "Save the current Rx channel dim values"
+			"options": [
+				{
+					"id": "value",
+					"label": "Save Dim Values",
+					"type": "checkbox",
+					"default": false,
+					"tooltip": "Save the current Rx channel dim values"
+				}
+			]
 		},
 		{
 			"cmd_id": 13,
 			"id": 10,
 			"name": "Main Output",
-			"label": "State",
-			"type": "dropdown",
-			"choices": [
-				{ "id": 0, "label": "Off" },
-				{ "id": 1, "label": "Toggle" },
-				{ "id": 2, "label": "On" }
-			],
-			"default": 0,
-			"tooltip": "Set main output state"
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Toggle" },
+						{ "id": 2, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Set main output state"
+				}
+			]
 		}
 	]
 }

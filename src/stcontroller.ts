@@ -1,6 +1,5 @@
 import dgram from 'dgram'
 import type { DeviceInfo } from './types.js'
-import { CMD_MIC_PRE_BUS } from './types.js'
 
 /**
  * StController UDP packet builder + sender
@@ -82,7 +81,8 @@ export class StController {
 	public async sendAwaitAck(
 		model: string,
 		cmdId: number,
-		settingId: number | null,
+		busCh: number | undefined,
+		settingId: number | undefined,
 		value: unknown,
 		destIp: string,
 		addLen: boolean = true,
@@ -91,12 +91,12 @@ export class StController {
 
 		// Build data block: [len, settingId, value...]
 		let dataBlock: number[] = []
-		if (settingId !== null) dataBlock = [settingId & 0xff]
-		if (value !== null) dataBlock = [...dataBlock, ...StController.buildValueBytes(value)]
+		if (settingId) dataBlock = [settingId & 0xff]
+		if (value) dataBlock = [...dataBlock, ...StController.buildValueBytes(value)]
 
 		// Build payload: [0x5A, cmdId, payloadLen, ...dataBlock, crc]
 		let payloadBody: number[] = [0x5a, cmdId & 0xff]
-		if (cmdId === CMD_MIC_PRE_BUS) payloadBody = [...payloadBody, 0x00] // additional "bus_chan" parameter for cmd_mic_pre_bus command
+		if (busCh !== undefined) payloadBody = [...payloadBody, busCh & 0xff] // additional "bus_chan" parameter for cmd_mic_pre_bus command
 
 		if (addLen) payloadBody = [...payloadBody, dataBlock.length]
 		payloadBody = [...payloadBody, ...dataBlock]
@@ -209,10 +209,10 @@ export class StController {
 	}
 
 	public async getAllSettings(model: string, destIp: string): Promise<Buffer> {
-		return await this.sendAwaitAck(model, 0x0a, null, null, destIp, false)
+		return await this.sendAwaitAck(model, 0x0a, undefined, undefined, undefined, destIp, false)
 	}
 
 	public async resetDevice(model: string, destIp: string): Promise<Buffer> {
-		return await this.sendAwaitAck(model, 0x0e, 0x00, null, destIp, false)
+		return await this.sendAwaitAck(model, 0x0e, undefined, 0x00, undefined, destIp, false)
 	}
 }

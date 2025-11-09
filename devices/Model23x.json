@@ -4,27 +4,67 @@
 		{
 			"cmd_id": 18,
 			"id": 1,
-			"name": "Microphone Preamplifier",
-			"label": "Gain (dB)",
-			"type": "number",
-			"min": 20,
-			"max": 65,
-			"step": 1,
-			"default": 20,
-			"tooltip": "Set microphone preamplifier gain (20–65 dB)"
+			"name": "Mic Pre Gain",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" }
+					],
+					"default": 0,
+					"tooltip": "Select mic preamp channel",
+					"paramType": "busChan"
+				},
+				{
+					"id": "value",
+					"label": "Gain (dB) Label",
+					"type": "number",
+					"min": 0,
+					"max": 63,
+					"step": 1,
+					"default": 0,
+					"tooltip": "Set mic pre gain (0–63 dB)",
+					"paramType": "value"
+				}
+			]
 		},
 		{
 			"cmd_id": 18,
 			"id": 2,
-			"name": "Microphone Preamplifier",
-			"label": "Phantom Power",
-			"type": "dropdown",
-			"choices": [
-				{ "id": 0, "label": "Off" },
-				{ "id": 48, "label": "On (48 V)" }
-			],
-			"default": 0,
-			"tooltip": "Enable or disable 48 V phantom power"
+			"name": "Mic Pre Phantom",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" }
+					],
+					"default": 1,
+					"tooltip": "Select mic preamp channel",
+					"paramType": "busChan"
+				},
+				{
+					"id": "value",
+					"label": "Phantom (+48v)",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 48, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Set mic phantom power",
+					"paramType": "value"
+				}
+			]
 		}
 	]
 }

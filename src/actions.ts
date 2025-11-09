@@ -11,16 +11,17 @@ export function UpdateActions(self: ModuleInstance): void {
 	const devicesFolder = path.join(import.meta.dirname, '../devices')
 
 	// Build Companion actions (sendFn should call ctl.sendCommandAwaitAck mapping)
-	const sendFn = async (model: string, cmdId: number, settingId: number, value: any) => {
+	const sendFn = async (model: string, cmdId: number, busCh: number | undefined, settingId: number, value: any) => {
 		// Map commandName -> cmdId and param mapping using the *_commands.json
 		// For demo: just log
+		console.log('busCh:', busCh)
 		console.log(
-			`Sending Model: Model${model}, cmdId: ${cmdId.toString(16).padStart(2, '0')}, settingId: ${settingId.toString(16).padStart(2, '0')}, value: ${value.toString(16).padStart(2, '0')}`,
+			`Sending Model: Model${model}, cmdId: ${cmdId.toString(16).padStart(2, '0')}, busCh: ${busCh?.toString(16).padStart(2, '0')}, settingId: ${settingId.toString(16).padStart(2, '0')}, value: ${value.toString(16).padStart(2, '0')}`,
 			`to Model${model} at ${self.config.host}`,
 		)
 		console.log(
 			`Reply from Model${model}`,
-			await self.stController.sendAwaitAck(model, cmdId, settingId, value, self.config.host),
+			await self.stController.sendAwaitAck(model, cmdId, busCh, settingId, value, self.config.host),
 		)
 	}
 

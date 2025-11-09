@@ -16,14 +16,23 @@ import { CompanionActionDefinitions, CompanionFeedbackDefinitions } from '@compa
 const devicesFolder = path.join(import.meta.dirname, '../devices')
 
 type Choice = { id: string | number; label: string }
-type UiSetting = {
+type actionDef = {
+	cmd_id: number
+	id: number
 	name: string
+	label: string
+	options: optionDef[]
+}
+
+type optionDef = {
+	id: string
 	type: 'static-text' | 'textinput' | 'dropdown' | 'colorpicker' | 'number' | 'checkbox'
 	label: string
 	default?: any
 	min?: number
 	max?: number
 	step?: number
+	range?: boolean
 	choices?: Choice[]
 	tooltip?: string
 	current?: any
@@ -41,43 +50,48 @@ export function loadUiSchemas(dir = devicesFolder): Record<string, any> {
 
 export function buildActions(
 	dir = devicesFolder,
-	sendFn?: (model: string, cmdId: number, settingId: number, value: any) => Promise<void>,
+	sendFn?: (model: string, cmdId: number, busCh: number | undefined, settingId: number, value: any) => Promise<void>,
 ): CompanionActionDefinitions {
 	const schemas = loadUiSchemas(dir)
 	const actions: Record<string, any> = {}
 
 	for (const [model, schema] of Object.entries(schemas)) {
-		const actionDef = schema.actions as Array<UiSetting & { cmd_id: number; id: number }>
+		const actionDef = schema.actions as Array<actionDef>
 		if (!actionDef) return actions
 
-		for (const s of actionDef) {
-			const actionId = `${model}_${s.id}`
-			const option: any = {
-				id: s.id.toString(),
-				type: s.type,
-				label: s.label,
-				default: s.default,
-				tooltip: s.tooltip,
-			}
-
-			if (s.type === 'dropdown' && s.choices) {
-				option.choices = s.choices
-			} else if (s.type === 'number') {
-				option.min = s.min
-				option.max = s.max
-				option.step = s.step ?? 1
-				option.range = true
+		for (const a of actionDef) {
+			const actionId = `${model}_${a.cmd_id}_${a.id}`
+			const options: optionDef[] = []
+			for (const o of a.options) {
+				const option: optionDef = {
+					id: o.id,
+					type: o.type,
+					label: o.label,
+					default: o.default,
+					tooltip: o.tooltip,
+				}
+				if (o.type === 'dropdown' && o.choices) {
+					option.choices = o.choices
+				} else if (o.type === 'number') {
+					option.min = o.min
+					option.max = o.max
+					option.step = o.step ?? 1
+					option.range = true
+				}
+				options.push(option)
 			}
 
 			actions[actionId] = {
-				name: `Model${model}: Set ${s.name}`,
-				options: [option],
+				name: `Model${model}: Set ${a.name}`,
+				options,
 				callback: async (event: any) => {
-					const value = event.options[s.id.toString()]
+					console.log('Event:', event)
+					const busCh = event.options['busCh']
+					const value = event.options['value']
 					if (sendFn) {
-						await sendFn(model, s.cmd_id, s.id, value)
+						await sendFn(model, a.cmd_id, busCh, a.id, value)
 					} else {
-						console.log('Send not provided, would send:', model, s.cmd_id, s.id, value)
+						console.log('Send not provided, would send:', model, a.cmd_id, busCh, a.id, value)
 					}
 				},
 			}
@@ -92,18 +106,18 @@ export function buildFeedbacks(dir = devicesFolder): CompanionFeedbackDefinition
 	const feedbacks: Record<string, any> = {}
 
 	for (const [model, schema] of Object.entries(schemas)) {
-		const feedbackDef = schema.feedbacks as Array<UiSetting & { cmd_id: number; id: number }>
+		const feedbackDef = schema.feedbacks as Array<optionDef & { cmd_id: number; id: number }>
 		console.log('feedbackDef:', JSON.stringify(feedbackDef, null, 2))
 		if (!feedbackDef) return feedbacks
 
 		for (const s of feedbackDef) {
-			const fbId = `${model}_${s.id}_state`
+			const fbId = `${model}_${s.cmd_id}_${s.id}_state`
 			feedbacks[fbId] = {
 				name: `${model}: ${s.label} state`,
 				type: 'boolean',
 				options: [
 					{
-						id: s.id.toString(),
+						id: s.id,
 						type: s.type === 'checkbox' ? 'checkbox' : s.type === 'dropdown' ? 'dropdown' : 'textinput',
 						label: s.label,
 						default: s.default,
@@ -112,7 +126,7 @@ export function buildFeedbacks(dir = devicesFolder): CompanionFeedbackDefinition
 				],
 				callback: (feedback: any, state: any) => {
 					const current = state?.[model]?.[s.id]
-					return current === feedback.options[s.id.toString()]
+					return current === feedback.options[s.id]
 				},
 			}
 		}

@@ -1,0 +1,152 @@
+{
+	"model": "5364",
+	"actions": [
+		{
+			"cmd_id": 13,
+            "id": 0,
+			"name": "Tx Output",
+            "options": [
+                {
+                    "label": "Channel",
+                    "type": "dropdown",
+                    "choices": [
+                        { "id": 0, "label": "Channel 1" },
+                        { "id": 1, "label": "Channel 2" }
+                    ],
+                    "default": 0,
+                    "tooltip": "Choose Channel"
+                },
+                {
+                    "label": "State",
+                    "type": "dropdown",
+                    "choices": [
+                        { "id": 0, "label": "Off" },
+                        { "id": 1, "label": "On" },
+                        { "id": 2, "label": "Toggle" }
+                    ],
+                    "default": 0,
+                    "tooltip": "Set Tx output state"
+                }
+            ]
+		},
+		{
+			"cmd_id": 13,
+			"id": 2,
+			"name": "Rx Mix Level",
+            "options": [
+                {
+                    "label": "Channel",
+                    "type": "dropdown",
+                    "choices": [
+                        { "id": 0, "label": "Channel 1" },
+                        { "id": 1, "label": "Channel 2" },
+                        { "id": 2, "label": "Channel 3" },
+                        { "id": 3, "label": "Channel 4" }
+                    ],
+                    "default": 0,
+                    "tooltip": "Choose Channel"
+                },
+                {
+                	"label": "Level",
+                    "type": "number",
+                    "min": 0,
+                    "max": 31,
+                    "step": 1,
+                    "default": 0,
+                    "tooltip": "Set Rx mix level (0–31)"
+                }
+            ]
+		},
+		{
+			"cmd_id": 13,
+			"id": 6,
+			"name": "Overall Level",
+			"label": "Level",
+			"type": "number",
+			"min": 0,
+			"max": 31,
+			"step": 1,
+			"default": 0,
+			"tooltip": "Set overall level (0–31)"
+		},
+		{
+			"cmd_id": 18,
+			"id": 13,
+			"name": "Headset",
+            "options": [
+                {
+                    "label": "Gain",
+                    "type": "dropdown",
+                    "choices": [
+                        { "id": 18, "label": "18dB" },
+                        { "id": 24, "label": "24dB" },
+                        { "id": 30, "label": "30dB" },
+                        { "id": 36, "label": "36dB" },
+                        { "id": 42, "label": "42dB" }
+                    ],
+                    "default": 18,
+                    "tooltip": "Set headset gain"
+                },
+                {
+			        "label": "Electret Power",
+                    "type": "dropdown",
+                    "choices": [
+                        { "id": 0, "label": "Off" },
+                        { "id": 5, "label": "On (+5V)" }
+                    ],
+                    "default": 0,
+                    "tooltip": "Enable or disable headset electret power"
+                }
+            ]
+		},
+		{
+			"cmd_id": 20,
+			"id": 1,
+			"name": "Receive Audio Headphone Routing",
+            "options": [
+                {
+                    "label": "Channel",
+                    "type": "dropdown",
+                    "choices": [
+                        { "id": 0, "label": "Channel 1" },
+                        { "id": 1, "label": "Channel 2" },
+                        { "id": 2, "label": "Channel 3" },
+                        { "id": 3, "label": "Channel 4" }
+                    ],
+                    "default": 0,
+                    "tooltip": "Choose Channel"
+                },
+                {
+                    "label": "Routing",
+                    "type": "dropdown",
+                    "choices": [
+                        { "id": 0, "label": "Off" },
+                        { "id": 1, "label": "Left" },
+                        { "id": 2, "label": "Right" },
+                        { "id": 3, "label": "Left and Right" }
+                    ],
+                    "default": 0,
+                    "tooltip": "Set headphone routing"
+                }
+            ]
+
+		},
+		{
+			"cmd_id": 5,
+			"id": 21,
+			"name": "Sidetone Level",
+			"label": "Level",
+			"type": "dropdown",
+			"choices": [
+				{ "id": 0, "label": "Off" },
+				{ "id": 1, "label": "Low" },
+				{ "id": 2, "label": "Medium-Low" },
+				{ "id": 3, "label": "Medium" },
+				{ "id": 4, "label": "Medium-High" },
+				{ "id": 5, "label": "High" }
+			],
+			"default": 0,
+			"tooltip": "Set sidetone level"
+		}
+	]
+}
