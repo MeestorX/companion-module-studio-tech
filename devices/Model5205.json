@@ -1,5 +1,5 @@
 {
-	"model": "23x",
+	"model": "5205",
 	"actions": [
 		{
 			"cmd_id": 18,
@@ -12,24 +12,25 @@
 					"type": "dropdown",
 					"choices": [
 						{ "id": 0, "label": "Channel 1" },
-						{ "id": 1, "label": "Channel 2" },
-						{ "id": 2, "label": "Channel 3" },
-						{ "id": 3, "label": "Channel 4" }
+						{ "id": 1, "label": "Channel 2" }
 					],
 					"default": 0,
-					"tooltip": "Select mic preamp channel",
-					"paramType": "busChan"
+					"tooltip": "Select the Mic Channel"
 				},
 				{
 					"id": "value",
-					"label": "Gain (dB) Label",
-					"type": "number",
-					"min": 0,
-					"max": 63,
-					"step": 1,
+					"label": "Gain",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "0dB" },
+						{ "id": 20, "label": "20dB" },
+						{ "id": 30, "label": "30dB" },
+						{ "id": 40, "label": "40dB" },
+						{ "id": 50, "label": "50dB" },
+						{ "id": 60, "label": "60dB" }
+					],
 					"default": 0,
-					"tooltip": "Set mic preamp gain (0–63 dB)",
-					"paramType": "value"
+					"tooltip": "Set the microphone preamplifier gain for the selected channel"
 				}
 			]
 		},
@@ -44,13 +45,10 @@
 					"type": "dropdown",
 					"choices": [
 						{ "id": 0, "label": "Channel 1" },
-						{ "id": 1, "label": "Channel 2" },
-						{ "id": 2, "label": "Channel 3" },
-						{ "id": 3, "label": "Channel 4" }
+						{ "id": 1, "label": "Channel 2" }
 					],
-					"default": 1,
-					"tooltip": "Select mic preamp channel",
-					"paramType": "busChan"
+					"default": 0,
+					"tooltip": "Set the Mic Channel"
 				},
 				{
 					"id": "value",
@@ -61,8 +59,7 @@
 						{ "id": 48, "label": "On" }
 					],
 					"default": 0,
-					"tooltip": "Set mic phantom power",
-					"paramType": "value"
+					"tooltip": "Set phantom power for the selected channel"
 				}
 			]
 		}

@@ -4,7 +4,7 @@
 		{
 			"cmd_id": 7,
 			"id": 16,
-			"name": "Main Button",
+			"name": "Main Button Mode",
 			"options": [
 				{
 					"id": "value",
@@ -26,7 +26,7 @@
 		{
 			"cmd_id": 7,
 			"id": 17,
-			"name": "Talkback Button",
+			"name": "Talkback Button Mode",
 			"options": [
 				{
 					"id": "value",

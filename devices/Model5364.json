@@ -1,0 +1,184 @@
+{
+	"model": "5364",
+	"actions": [
+		{
+			"cmd_id": 13,
+			"id": 0,
+			"name": "Tx Output Mode",
+			"options": [
+				{
+					"id": "idAdd",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" }
+					],
+					"default": 0,
+					"tooltip": "Choose Channel"
+				},
+				{
+					"id": "value",
+					"label": "Mode",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" },
+						{ "id": 2, "label": "Toggle" }
+					],
+					"default": 0,
+					"tooltip": "Set Tx output state"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 2,
+			"name": "Rx Mix Level",
+			"options": [
+				{
+					"id": "idAdd",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" }
+					],
+					"default": 0,
+					"tooltip": "Choose Channel"
+				},
+				{
+					"id": "value",
+					"label": "Level",
+					"type": "number",
+					"min": 0,
+					"max": 31,
+					"step": 1,
+					"default": 0,
+					"tooltip": "Set Rx mix level (0–31)"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 6,
+			"name": "Overall Level",
+			"options": [
+				{
+					"id": "value",
+					"label": "Level",
+					"type": "number",
+					"min": 0,
+					"max": 31,
+					"step": 1,
+					"default": 0,
+					"tooltip": "Set overall level (0–31)"
+				}
+			]
+		},
+		{
+			"cmd_id": 18,
+			"id": 13,
+			"name": "Headset Mic Gain",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [{ "id": 0, "label": "Channel 1" }],
+					"default": 0,
+					"tooltip": "Only 1 channel available!"
+				},
+				{
+					"id": "value",
+					"label": "Gain",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 18, "label": "18dB" },
+						{ "id": 24, "label": "24dB" },
+						{ "id": 30, "label": "30dB" },
+						{ "id": 36, "label": "36dB" },
+						{ "id": 42, "label": "42dB" }
+					],
+					"default": 18,
+					"tooltip": "Set headset gain"
+				}
+			]
+		},
+		{
+			"cmd_id": 18,
+			"id": 14,
+			"name": "Headset Mic Electret Power",
+			"options": [
+				{
+					"id": "value",
+					"label": "Electret Power (+5v)",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 5, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Enable or disable headset electret power"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 1,
+			"name": "Headphone Routing",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" }
+					],
+					"default": 0,
+					"tooltip": "Choose Channel"
+				},
+				{
+					"id": "value",
+					"label": "Routing",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Left" },
+						{ "id": 2, "label": "Right" },
+						{ "id": 3, "label": "Left and Right" }
+					],
+					"default": 0,
+					"tooltip": "Set headphone routing"
+				}
+			]
+		},
+		{
+			"cmd_id": 5,
+			"id": 21,
+			"name": "Sidetone Level",
+			"options": [
+				{
+					"id": "value",
+					"label": "Level",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Low" },
+						{ "id": 2, "label": "Medium-Low" },
+						{ "id": 3, "label": "Medium" },
+						{ "id": 4, "label": "Medium-High" },
+						{ "id": 5, "label": "High" }
+					],
+					"default": 0,
+					"tooltip": "Set sidetone level"
+				}
+			]
+		}
+	]
+}

@@ -39,7 +39,7 @@ type optionDef = {
 }
 
 export function loadUiSchemas(dir = devicesFolder): Record<string, any> {
-	const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json') && !f.endsWith('_commands.json'))
+	const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'))
 	const out: Record<string, any> = {}
 	for (const f of files) {
 		const j = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))
@@ -88,10 +88,12 @@ export function buildActions(
 					console.log('Event:', event)
 					const busCh = event.options['busCh']
 					const value = event.options['value']
+					const addId = event.options['idAdd']
+					const setting_id = a.id + (addId || 0)
 					if (sendFn) {
-						await sendFn(model, a.cmd_id, busCh, a.id, value)
+						await sendFn(model, a.cmd_id, busCh, setting_id, value)
 					} else {
-						console.log('Send not provided, would send:', model, a.cmd_id, busCh, a.id, value)
+						console.log('Send not provided, would send:', model, a.cmd_id, busCh, setting_id, value)
 					}
 				},
 			}

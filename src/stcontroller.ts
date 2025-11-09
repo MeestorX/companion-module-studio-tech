@@ -91,8 +91,8 @@ export class StController {
 
 		// Build data block: [len, settingId, value...]
 		let dataBlock: number[] = []
-		if (settingId) dataBlock = [settingId & 0xff]
-		if (value) dataBlock = [...dataBlock, ...StController.buildValueBytes(value)]
+		dataBlock = [settingId! & 0xff]
+		dataBlock = [...dataBlock, ...StController.buildValueBytes(value)]
 
 		// Build payload: [0x5A, cmdId, payloadLen, ...dataBlock, crc]
 		let payloadBody: number[] = [0x5a, cmdId & 0xff]

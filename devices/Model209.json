@@ -4,7 +4,7 @@
 		{
 			"cmd_id": 13,
 			"id": 2,
-			"name": "Remote Control Inputs",
+			"name": "Remote Control In Mode",
 			"options": [
 				{
 					"id": "value",
@@ -24,7 +24,7 @@
 		{
 			"cmd_id": 13,
 			"id": 3,
-			"name": "Tally Out",
+			"name": "Tally Out Mode",
 			"options": [
 				{
 					"id": "value",
@@ -93,7 +93,7 @@
 		{
 			"cmd_id": 13,
 			"id": 7,
-			"name": "Rx Channel 1",
+			"name": "Rx Channel 1 Dim",
 			"options": [
 				{
 					"id": "value",
@@ -120,7 +120,7 @@
 		{
 			"cmd_id": 13,
 			"id": 8,
-			"name": "Rx Channel 2",
+			"name": "Rx Channel 2 Dim",
 			"options": [
 				{
 					"id": "value",
@@ -147,7 +147,7 @@
 		{
 			"cmd_id": 13,
 			"id": 9,
-			"name": "Rx Channels",
+			"name": "Save Rx Dim",
 			"options": [
 				{
 					"id": "value",
@@ -161,11 +161,11 @@
 		{
 			"cmd_id": 13,
 			"id": 10,
-			"name": "Main Output",
+			"name": "Main Output Mode",
 			"options": [
 				{
 					"id": "value",
-					"label": "State",
+					"label": "Mode",
 					"type": "dropdown",
 					"choices": [
 						{ "id": 0, "label": "Off" },

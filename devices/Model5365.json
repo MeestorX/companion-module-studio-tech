@@ -1,0 +1,336 @@
+{
+	"model": "5365",
+	"actions": [
+		{
+			"cmd_id": 13,
+			"id": 0,
+			"name": "Dante Output Channel 1 State",
+			"options": [
+				{
+					"id": "value",
+					"label": "Output 1 State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" },
+						{ "id": 2, "label": "Toggle" }
+					],
+					"default": 0,
+					"tooltip": "Set the Dante Output Channel 1 state"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 1,
+			"name": "Dante Output Channel 2 State",
+			"options": [
+				{
+					"id": "value",
+					"label": "Output 2 State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" },
+						{ "id": 2, "label": "Toggle" }
+					],
+					"default": 0,
+					"tooltip": "Set the Dante Output Channel 2 state"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 2,
+			"name": "Mic to Analog Output Routing",
+			"options": [
+				{
+					"id": "value",
+					"label": "Mic Input Routes To",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 1, "label": "Channel 1" },
+						{ "id": 2, "label": "Channel 2" },
+						{ "id": 3, "label": "Channel 1 and 2" }
+					],
+					"default": 1,
+					"tooltip": "Select routing for analog line outputs"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 3,
+			"name": "Analog Output Level",
+			"options": [
+				{
+					"id": "value",
+					"label": "Level",
+					"type": "number",
+					"min": 0,
+					"max": 31,
+					"default": 0,
+					"tooltip": "Set the overall level for analog line outputs"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 4,
+			"name": "Mic to Analog Output Level",
+			"options": [
+				{
+					"id": "value",
+					"label": "Level",
+					"type": "number",
+					"min": 0,
+					"max": 31,
+					"default": 0,
+					"tooltip": "Set the mic input level for analog line outputs"
+				}
+			]
+		},
+		{
+			"cmd_id": 18,
+			"id": 13,
+			"name": "Mic Gain",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Bus Channel",
+					"type": "dropdown",
+					"choices": [{ "id": 0, "label": "Mic 1" }],
+					"default": 0,
+					"tooltip": "Mic pre bus (fixed at 1 for this device)"
+				},
+				{
+					"id": "value",
+					"label": "Gain",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 18, "label": "18 dB" },
+						{ "id": 24, "label": "24 dB" },
+						{ "id": 30, "label": "30 dB" },
+						{ "id": 36, "label": "36 dB" },
+						{ "id": 42, "label": "42 dB" }
+					],
+					"default": 18,
+					"tooltip": "Set the microphone input gain"
+				}
+			]
+		},
+		{
+			"cmd_id": 18,
+			"id": 14,
+			"name": "Mic Electret Power",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Bus Channel",
+					"type": "dropdown",
+					"choices": [{ "id": 0, "label": "Mic Pre Bus 0" }],
+					"default": 0,
+					"tooltip": "Mic pre bus (fixed at 0 for this device)"
+				},
+				{
+					"id": "value",
+					"label": "Electret Power (+9v)",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 5, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Enable or disable electret power"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 1,
+			"name": "Headphone Routing",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Dante Input 1" },
+						{ "id": 1, "label": "Dante Input 2" },
+						{ "id": 2, "label": "Analog Line Input 1" },
+						{ "id": 3, "label": "Analog Line Input 2" }
+					],
+					"default": 0,
+					"tooltip": "Select which input channel to set"
+				},
+				{
+					"id": "value",
+					"label": "Routing",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Left" },
+						{ "id": 2, "label": "Right" },
+						{ "id": 3, "label": "Left and Right" }
+					],
+					"default": 0,
+					"tooltip": "Set headphone routing for the selected channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 17,
+			"name": "Analog Line Input Level",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Input Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Input 1" },
+						{ "id": 1, "label": "Input 2" }
+					],
+					"default": 0,
+					"tooltip": "Select the analog input channel"
+				},
+				{
+					"id": "value",
+					"label": "Level",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "+0 dB" },
+						{ "id": 6, "label": "+6 dB" },
+						{ "id": 12, "label": "+12 dB" }
+					],
+					"default": 0,
+					"tooltip": "Set analog line input level for the selected channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 19,
+			"name": "Line Input to Headphone Level",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Dante Input 1" },
+						{ "id": 1, "label": "Dante Input 2" },
+						{ "id": 2, "label": "Analog Line Input 1" },
+						{ "id": 3, "label": "Analog Line Input 2" }
+					],
+					"default": 0,
+					"tooltip": "Select the channel to set headphone output level"
+				},
+				{
+					"id": "value",
+					"label": "Level",
+					"type": "number",
+					"min": 0,
+					"max": 31,
+					"default": 0,
+					"tooltip": "Set level of selected channel to headphones"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 20,
+			"name": "Analog Line Outputs Routes To",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Input Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 2, "label": "Analog Line Input 1" },
+						{ "id": 3, "label": "Analog Line Input 2" }
+					],
+					"default": 2,
+					"tooltip": "Select which analog input to configure"
+				},
+				{
+					"id": "value",
+					"label": "Route To",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 1, "label": "Channel 1" },
+						{ "id": 2, "label": "Channel 2" },
+						{ "id": 3, "label": "Channel 1 and 2" }
+					],
+					"default": 1,
+					"tooltip": "Set analog line output routing"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 22,
+			"name": "Analog Line Outputs Level",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Input Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 2, "label": "Analog Line Input 1" },
+						{ "id": 3, "label": "Analog Line Input 2" }
+					],
+					"default": 2,
+					"tooltip": "Select which analog input to configure"
+				},
+				{
+					"id": "value",
+					"label": "Level",
+					"type": "number",
+					"min": 0,
+					"max": 31,
+					"default": 0,
+					"tooltip": "Set analog line output level for selected channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 5,
+			"id": 21,
+			"name": "Headphone Sidetone Level",
+			"options": [
+				{
+					"id": "value",
+					"label": "Sidetone Level",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Low" },
+						{ "id": 2, "label": "Medium-Low" },
+						{ "id": 3, "label": "Medium" },
+						{ "id": 4, "label": "Medium-High" },
+						{ "id": 5, "label": "High" }
+					],
+					"default": 0,
+					"tooltip": "Set sidetone level for headphones"
+				}
+			]
+		},
+		{
+			"cmd_id": 5,
+			"id": 32,
+			"name": "Headphone Output Overall Level",
+			"options": [
+				{
+					"id": "value",
+					"label": "Level",
+					"type": "number",
+					"min": 0,
+					"max": 31,
+					"default": 0,
+					"tooltip": "Set overall headphone output level"
+				}
+			]
+		}
+	]
+}
