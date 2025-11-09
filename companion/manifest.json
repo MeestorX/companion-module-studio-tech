@@ -1,6 +1,6 @@
 {
 	"id": "companion-module-studio-tech",
-	"name": "companion-module-studio-tech",
+	"name": "MeestorX/companion-module-studio-tech",
 	"shortname": "studio-tech",
 	"description": "A Companion module for controlling Studio Technologies devices.",
 	"version": "0.1.4",
