@@ -22,12 +22,14 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 		this.updateActions() // export actions
 		this.updateFeedbacks() // export feedbacks
 		this.updateVariableDefinitions() // export variable definitions
-		try {
-			console.log('Sending "Reset to Factory"...')
-			await this.stController.resetDevice('', this.config.host)
-		} catch {
-			/* empty */
-		}
+
+		//		try {
+		//			console.log('Sending "Reset to Factory"...')
+		//			await this.stController.resetDevice('', this.config.host)
+		//		} catch {
+		//			/* empty */
+		//		}
+
 		try {
 			console.log('Sending "Get All Device Settings"...')
 			await this.stController.getAllSettings('', this.config.host)
