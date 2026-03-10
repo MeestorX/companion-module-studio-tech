@@ -1,14 +1,34 @@
-import { InstanceBase, runEntrypoint, InstanceStatus, SomeCompanionConfigField } from '@companion-module/base'
-import { GetConfigFields, type ModuleConfig } from './config.js'
+import path from 'path'
+import {
+	InstanceTypes,
+	InstanceBase,
+	InstanceStatus,
+	SomeCompanionConfigField,
+	createModuleLogger,
+} from '@companion-module/base'
+import { GetConfigFields, resolveHost, resolveModel, type ModuleConfig } from './config.js'
 import { UpdateVariableDefinitions } from './variables.js'
 import { UpgradeScripts } from './upgrades.js'
 import { UpdateActions } from './actions.js'
 import { UpdateFeedbacks } from './feedbacks.js'
 import { StController } from './stcontroller.js'
+import { loadActionsForModel } from './settingsParser.js'
+import type { DeviceInfo } from './types.js'
 
-export class ModuleInstance extends InstanceBase<ModuleConfig> {
+const logger = createModuleLogger('ModuleInstance')
+const devicesFolder = path.join(import.meta.dirname, '../devices')
+
+export interface ModuleTypes extends InstanceTypes {
+	config: ModuleConfig
+}
+
+export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 	config!: ModuleConfig // Setup in init()
 	stController!: StController
+
+	/** Cached discovery results — passed into getConfigFields() so the UI
+	 *  can show the discovered device dropdown on subsequent config opens. */
+	private discoveredDevices: DeviceInfo[] = []
 
 	constructor(internal: unknown) {
 		super(internal)
@@ -16,40 +36,95 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 
 	async init(config: ModuleConfig): Promise<void> {
 		this.config = config
-		this.stController = new StController()
+		if (!this.stController) {
+			this.stController = new StController()
+		}
 		this.updateStatus(InstanceStatus.Ok)
 
-		this.updateActions() // export actions
-		this.updateFeedbacks() // export feedbacks
-		this.updateVariableDefinitions() // export variable definitions
+		// Run discovery to populate the device list FIRST
+		this.discoveredDevices = await this.stController.discoverDevices()
+		if (this.discoveredDevices.length === 0) {
+			logger.warn('No devices discovered')
+		} else {
+			logger.info(`Discovered ${this.discoveredDevices.length} device(s):`)
+			for (const d of this.discoveredDevices) {
+				logger.info(`  - Model ${d.model} ${d.manufacturer ?? ''} @ ${d.ip}`)
+			}
+		}
 
-		//		try {
-		//			console.log('Sending "Reset to Factory"...')
-		//			await this.stController.resetDevice('', this.config.host)
-		//		} catch {
-		//			/* empty */
-		//		}
+		// Load device schema and sync to controller for message decoding
+		// Use resolveModel to auto-detect model from discovered device if selected
+		const effectiveModel = resolveModel(this.config, this.discoveredDevices)
+		this.syncModel(effectiveModel)
 
-		try {
-			console.log('Sending "Get All Device Settings"...')
-			await this.stController.getAllSettings('', this.config.host)
-		} catch {
-			/* empty */
+		// NOW update actions/feedbacks/variables after discovery and model resolution
+		this.updateActions()
+		this.updateFeedbacks()
+		this.updateVariableDefinitions()
+
+		// Fetch initial settings state from the configured device only
+		const targetHost = this.host
+		if (targetHost) {
+			try {
+				await this.stController.requestAllSettings(targetHost)
+			} catch (e) {
+				logger.warn(`Failed to get all settings from ${targetHost}: ${e}`)
+			}
 		}
 	}
 
 	// When module gets deleted
 	async destroy(): Promise<void> {
-		this.log('debug', 'destroy')
+		this.stController?.close()
+		logger.debug('destroy')
 	}
 
 	async configUpdated(config: ModuleConfig): Promise<void> {
+		const previousHost = this.host
 		this.config = config
+		const effectiveModel = resolveModel(config, this.discoveredDevices)
+		this.syncModel(effectiveModel)
+
+		// Rebuild actions when config changes (model or device selection changed)
+		this.updateActions()
+
+		// If the host changed, request settings from the new device
+		const newHost = this.host
+		if (newHost && newHost !== previousHost) {
+			try {
+				await this.stController.requestAllSettings(newHost)
+			} catch (e) {
+				logger.warn(`Failed to get all settings from ${newHost}: ${e}`)
+			}
+		}
 	}
 
-	// Return config fields for web config
+	/** Loads the device JSON for the given model and pushes it to the controller. */
+	private syncModel(model: string): void {
+		const actions = loadActionsForModel(devicesFolder, model)
+		this.stController.setModel(model, actions)
+		if (actions.length === 0) {
+			logger.warn(`No actions found for model "${model}" — settings decoding will use raw IDs`)
+		} else {
+			logger.debug(`Loaded ${actions.length} actions for model "${model}"`)
+		}
+	}
+
+	// Return config fields for web config — include discovered devices so the
+	// dropdown is populated. Called by Companion on first load and after
+	// setConfigSchemaVersion() triggers a refresh.
 	getConfigFields(): SomeCompanionConfigField[] {
-		return GetConfigFields()
+		return GetConfigFields(this.discoveredDevices)
+	}
+
+	/** Returns the effective host IP, preferring the discovered device selection. */
+	get host(): string {
+		return resolveHost(this.config)
+	}
+
+	/** Returns discovered devices for use in actions/config */
+	get devices(): DeviceInfo[] {
+		return this.discoveredDevices
 	}
 
 	updateActions(): void {
@@ -65,4 +140,4 @@ export class ModuleInstance extends InstanceBase<ModuleConfig> {
 	}
 }
 
-runEntrypoint(ModuleInstance, UpgradeScripts)
+export { UpgradeScripts }

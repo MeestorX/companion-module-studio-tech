@@ -1,0 +1,368 @@
+{
+	"model": "5304",
+	"actions": [
+		{
+			"cmd_id": 18,
+			"id": 13,
+			"busCh": 0,
+			"name": "Mic Gain",
+			"options": [
+				{
+					"id": "value",
+					"label": "Gain",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 48, "label": "48dB" },
+						{ "id": 42, "label": "42dB" },
+						{ "id": 36, "label": "36dB" },
+						{ "id": 30, "label": "30dB" },
+						{ "id": 24, "label": "24dB" }
+					],
+					"default": 30,
+					"tooltip": "Set the microphone preamplifier gain"
+				}
+			]
+		},
+		{
+			"cmd_id": 18,
+			"id": 14,
+			"busCh": 0,
+			"name": "Mic Electret Power",
+			"options": [
+				{
+					"id": "value",
+					"label": "Electret Power (+3.3v)",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 5, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Enable or disable electret microphone power"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 0,
+			"name": "Button Mode",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" }
+					],
+					"default": 0,
+					"tooltip": "Select the button channel"
+				},
+				{
+					"id": "value",
+					"label": "Function",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 1, "label": "Push to Talk" },
+						{ "id": 2, "label": "Tap to Latch" },
+						{ "id": 3, "label": "Push to Talk / Tap to Latch" },
+						{ "id": 4, "label": "Disabled" }
+					],
+					"default": 1,
+					"tooltip": "Set the function for the selected button"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 1,
+			"name": "Phones Routing",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" }
+					],
+					"default": 0,
+					"tooltip": "Select the phones channel"
+				},
+				{
+					"id": "value",
+					"label": "Routing",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 1, "label": "Left" },
+						{ "id": 2, "label": "Right" },
+						{ "id": 3, "label": "Left and Right" }
+					],
+					"default": 3,
+					"tooltip": "Set the routing for the selected phones channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 3,
+			"name": "Button Function",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" }
+					],
+					"default": 0,
+					"tooltip": "Select the button channel"
+				},
+				{
+					"id": "value",
+					"label": "Routing",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Talk" },
+						{ "id": 1, "label": "Talk with 18 khz Tone" }
+					],
+					"default": 0,
+					"tooltip": "Set the Talk mode for the selected channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 5,
+			"name": "Call Indication",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" }
+					],
+					"default": 0,
+					"tooltip": "Select the button channel"
+				},
+				{
+					"id": "value",
+					"label": "Function",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 4, "label": "Flash" },
+						{ "id": 1, "label": "Solid" },
+						{ "id": 9, "label": "Flash then Solid" }
+					],
+					"default": 9,
+					"tooltip": "Set the Call Style for the selected button"
+				}
+			]
+		},
+		{
+			"cmd_id": 5,
+			"id": 21,
+			"name": "Sidetone Level",
+			"options": [
+				{
+					"id": "value",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 5, "label": "High" },
+						{ "id": 4, "label": "Medium High" },
+						{ "id": 3, "label": "Medium" },
+						{ "id": 2, "label": "Medium Low" },
+						{ "id": 1, "label": "Low" },
+						{ "id": 0, "label": "Off" }
+					],
+					"default": 3,
+					"tooltip": "Sidetone Level"
+				}
+			]
+		},
+		{
+			"cmd_id": 5,
+			"id": 25,
+			"name": "Headset Channel Solo",
+			"options": [
+				{
+					"id": "value",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 254, "label": "Off" },
+						{ "id": 6, "label": "6 dB" },
+						{ "id": 9, "label": "9 dB" },
+						{ "id": 12, "label": "12 dB" },
+						{ "id": 15, "label": "15 dB" },
+						{ "id": 255, "label": "Full Mute" }
+					],
+					"default": 255,
+					"tooltip": "Headset Channel Solo Level"
+				}
+			]
+		},
+		{
+			"cmd_id": 5,
+			"id": 27,
+			"name": "Local Sidetone Adjustment",
+			"options": [
+				{
+					"id": "value",
+					"label": "Enable",
+					"type": "checkbox",
+					"default": true,
+					"tooltip": "Allow Local Sidetone level adjustment"
+				}
+			]
+		},
+		{
+			"cmd_id": 7,
+			"id": 20,
+			"name": "Aux Button Mode",
+			"options": [
+				{
+					"id": "value",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 15, "label": "All Talk" },
+						{ "id": 10, "label": "Call" },
+						{ "id": 4, "label": "Disabled" }
+					],
+					"default": 4,
+					"tooltip": "Aux Button Mode"
+				}
+			]
+		},
+		{
+			"cmd_id": 9,
+			"id": 1,
+			"name": "Mic Kill Mode",
+			"options": [
+				{
+					"id": "value",
+					"label": "Mode",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Device ID" },
+						{ "id": 2, "label": "Global Kill Command" },
+						{ "id": 3, "label": "Device ID / Global Kill Command" }
+					],
+					"default": 2,
+					"tooltip": "Microphone Kill Mode"
+				}
+			]
+		},
+		{
+			"cmd_id": 9,
+			"id": 2,
+			"name": "Remote Control In",
+			"options": [
+				{
+					"id": "idAdd",
+					"label": "Remote Input",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Remote In 1" },
+						{ "id": 1, "label": "Remote In 2" }
+					],
+					"default": 0,
+					"tooltip": "Select the remote control input"
+				},
+				{
+					"id": "value",
+					"label": "Function",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 11, "label": "Channel 1" },
+						{ "id": 12, "label": "Channel 2" },
+						{ "id": 13, "label": "Channel 3" },
+						{ "id": 14, "label": "Channel 4" },
+						{ "id": 19, "label": "Aux" }
+					],
+					"default": 0,
+					"tooltip": "Set the function for the selected remote control input"
+				}
+			]
+		},
+		{
+			"cmd_id": 9,
+			"id": 4,
+			"name": "LED Intensity",
+			"options": [
+				{
+					"id": "value",
+					"label": "Intensity",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 1, "label": "High" },
+						{ "id": 0, "label": "Low" }
+					],
+					"default": 1,
+					"tooltip": "LED Intensity"
+				}
+			]
+		},
+		{
+			"cmd_id": 9,
+			"id": 10,
+			"name": "Input Signal Present Display",
+			"options": [
+				{
+					"id": "value",
+					"label": "Enable",
+					"type": "checkbox",
+					"default": true,
+					"tooltip": "Enable Signal Preset indication on the channel knobs"
+				}
+			]
+		},
+		{
+			"cmd_id": 9,
+			"id": 13,
+			"name": "Microphone Level Display",
+			"options": [
+				{
+					"id": "value",
+					"label": "Enable",
+					"type": "checkbox",
+					"default": true,
+					"tooltip": "Enable Level display for Microphone"
+				}
+			]
+		},
+		{
+			"cmd_id": 9,
+			"id": 33,
+			"name": "Button LED Action",
+			"options": [
+				{
+					"id": "value",
+					"label": "Mode",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Red when Off / Green when On" },
+						{ "id": 1, "label": "Green when Off / Red when On" },
+						{ "id": 2, "label": "Unlit when Off / Green when On" },
+						{ "id": 3, "label": "Unlit when Off / Red when On" }
+					],
+					"default": 2,
+					"tooltip": "Button LED display mode"
+				}
+			]
+		}
+	]
+}

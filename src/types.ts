@@ -13,6 +13,8 @@ export interface DeviceSetting {
 export interface DeviceInfo {
 	model: string
 	ip: string
+	name?: string // Dante device name (user-configurable label, e.g. "Studio-TZ")
+	manufacturer?: string // e.g. "Studio Technologies, Inc."
 	firmware?: string
 	mac?: string
 	serial?: string

@@ -1,3 +1,17 @@
-## Your module
+## Companion Module for Studio Technologies Dante Devices
 
-Write some help for your users here!
+Supported Devices so far:
+
+Model 23x
+Model 201
+Model 203
+Model 204
+Model 207
+Model 209
+Model 374A
+Model 391
+Model 392
+Model 5205
+Model 5304
+Model 5364
+Model 5365

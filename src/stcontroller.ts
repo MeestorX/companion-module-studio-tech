@@ -1,83 +1,409 @@
 import dgram from 'dgram'
+import os from 'os'
+import { createModuleLogger } from '@companion-module/base'
 import type { DeviceInfo } from './types.js'
+import {
+	parseGetAllSettingsForModel,
+	parseSettingsResponse,
+	formatParsedSetting,
+	type StAction,
+} from './settingsParser.js'
+
+const logger = createModuleLogger('StController')
+
+// ─── Dante discovery constants ────────────────────────────────────────────────
+
+/** Dante device info request message type (sent to port 8700) */
+const DANTE_MSG_INFO_REQUEST = 0x0020
+/** Dante device info response message type (received on port 8702) */
+const DANTE_MSG_INFO_RESPONSE = 0x0170
 
 /**
- * StController UDP packet builder + sender
+ * Dante device info response layout (all offsets are into the UDP payload):
+ *   0x00  uint16BE  Magic (0xffff)
+ *   0x02  uint16BE  Message type (0x0170)
+ *   0x04  uint16BE  Sequence number
+ *   0x06  2 bytes   Padding
+ *   0x08  8 bytes   EUI-64 (source MAC with ff:fe inserted mid)
+ *   0x10  8 bytes   "Audinate" ASCII identifier
+ *   0x18  2 bytes   Dante firmware version (major, minor)
+ *   0x20  14 bytes  Device name, null-padded ASCII
+ *   0x2e  uint16BE  Product ID
+ *   0x4c  64 bytes  Manufacturer string, null-padded ASCII
+ *   0xcc  64 bytes  Model string, null-padded ASCII
  */
+const DANTE_INFO_MIN_LEN = 0xcc + 64 // 268 bytes — need full model field
+
+// ─── Studio-T command ID lookup (for display only) ───────────────────────────
+// Just shows the command ID in hex - no semantic meaning assumed
+const ST_CMD_NAMES: Record<number, string> = {
+	0x02: 'cmd_0x02',
+	0x03: 'cmd_0x03',
+	0x04: 'cmd_0x04',
+	0x0a: 'Get All Settings',
+	0x0b: 'Settings Push',
+	0x0d: 'cmd_0x0d',
+	0x0e: 'Reset Device',
+	0x10: 'Global Mic Kill',
+	0x11: 'cmd_0x11',
+	0x12: 'cmd_0x12',
+}
+
 export class StController {
 	private readonly defaultPort: number = 8700
-	private readonly broadcastAddr: string = '255.255.255.255'
+	private readonly multicastGroup = '224.0.0.231'
+	private readonly rxPort = 8702
 
-	constructor() {}
+	private txSocket: dgram.Socket
+	private rxSocket: dgram.Socket // for receiving responses (8702)
+	private pendingAcks: Map<
+		string,
+		{ resolve: (buf: Buffer) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }
+	>
+	private joinedInterfaces: Set<string> = new Set() // local IPs we've joined multicast on
 
-	/* ----------------------------
-	 * Discovery
-	 * ---------------------------- */
+	/** Resolves once txSocket is bound and ready to send */
+	private txReady: Promise<void>
 
-	public async discoverDevices(timeoutMs = 2000): Promise<DeviceInfo[]> {
-		const socket = dgram.createSocket('udp4')
-		const discovered: Record<string, DeviceInfo> = {}
+	/** Active device model and action definitions for settings decoding */
+	private model: string = ''
+	private actions: StAction[] = []
 
-		await new Promise<void>((resolve) => {
-			socket.bind(() => {
-				socket.setBroadcast(true)
+	/**
+	 * Known state of every setting per device IP.
+	 * Keyed by IP → Map of "${cmdId}/${settingId}" → current value byte.
+	 * Populated on connect via requestAllSettings(), updated on every 0x0b push.
+	 * Used to diff incoming pushes (changed = info, unchanged = debug) and for feedbacks.
+	 */
+	private deviceState: Map<string, Map<string, number>> = new Map()
+
+	/** Callbacks registered by discoverDevices() — keyed by source IP */
+	private discoveryListeners: Map<string, (device: DeviceInfo) => void> = new Map()
+
+	constructor() {
+		logger.info('StController initialized')
+
+		this.pendingAcks = new Map()
+
+		// Send socket — bind to ephemeral port. Responses always go to rxSocket on
+		// port 8702 (Dante hardcodes the response destination port to 8702).
+		this.txSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true })
+		this.txReady = new Promise<void>((resolve) => {
+			this.txSocket.bind(0, () => {
+				logger.debug(`TX socket bound to port ${(this.txSocket.address() as { port: number }).port}`)
 				resolve()
 			})
 		})
+		this.txSocket.on('error', (err) => {
+			logger.error(`TX socket error: ${err}`)
+		})
 
-		const discoveryPacket = Buffer.from([
-			0xff,
-			0xff,
-			0x00,
-			0x20,
-			0x07,
-			0xe1,
-			0x00,
-			0x00,
-			...Buffer.from('Studio-Technologies-Discovery\0'),
-		])
+		// Receive socket - bind to all addresses so kernel can deliver multicast packets
+		this.rxSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true })
 
-		socket.send(discoveryPacket, this.defaultPort, this.broadcastAddr)
+		this.rxSocket.on('listening', () => {
+			const addr = this.rxSocket.address()
+			logger.debug(`RX socket listening on ${JSON.stringify(addr)}`)
+			try {
+				this.rxSocket.setMulticastLoopback(true)
+			} catch (_e) {
+				/* ignore */
+			}
+		})
 
-		return await new Promise<DeviceInfo[]>((resolve) => {
-			const timer = setTimeout(() => {
-				socket.close()
-				resolve(Object.values(discovered))
-			}, timeoutMs)
+		this.rxSocket.on('error', (err) => {
+			logger.error(`RX socket error: ${err}`)
+		})
 
-			socket.on('message', (msg, rinfo) => {
-				const text = msg.toString('utf8')
-				const modelMatch = text.match(/Model\d+/i)
-				const fwMatch = text.match(/v?(\d+\.\d+\.\d+)/i)
-				const hex = msg.toString('hex')
-				const macMatch = hex.match(/(?:[0-9a-f]{2}){6}/i)
+		this.rxSocket.on('message', (msg, rinfo) => {
+			try {
+				this.handleIncoming(msg, rinfo.address)
+			} catch (_e) {
+				logger.error(`Error handling incoming message: ${_e}`)
+			}
+		})
 
-				const info: DeviceInfo = {
-					model: modelMatch ? modelMatch[0] : 'Unknown',
-					ip: rinfo.address,
-					firmware: fwMatch ? fwMatch[1] : undefined,
-					mac: macMatch ? macMatch[0].match(/.{2}/g)?.join(':') : undefined,
-					serial: undefined,
+		// Bind to wildcard so kernel can deliver multicast packets for joined interfaces
+		this.rxSocket.bind({ address: '0.0.0.0', port: this.rxPort }, () => {
+			logger.debug(`RX socket bound to 0.0.0.0:${this.rxPort}`)
+		})
+	}
+
+	public close(): void {
+		try {
+			for (const localAddr of Array.from(this.joinedInterfaces)) {
+				try {
+					this.rxSocket.dropMembership(this.multicastGroup, localAddr)
+				} catch {
+					/* ignore */
 				}
+			}
+		} catch {
+			/* ignore */
+		}
+		try {
+			this.rxSocket.close()
+		} catch {
+			/* ignore */
+		}
+		try {
+			this.txSocket.close()
+		} catch {
+			/* ignore */
+		}
+	}
 
-				discovered[rinfo.address] = info
+	/**
+	 * Provide the active device model and action definitions so incoming messages
+	 * can be decoded into human-readable names. Call from main.ts after config load.
+	 */
+	public setModel(model: string, actions: StAction[]): void {
+		this.model = model
+		this.actions = actions
+	}
+
+	/**
+	 * Send a 0x0a Get All Settings request to the device and store the response
+	 * in deviceState. Returns the raw response buffer for parsing.
+	 */
+	public async requestAllSettings(deviceIp: string): Promise<Buffer> {
+		logger.info(`Requesting all settings from ${deviceIp}`)
+		const response = await this.sendAwaitAck(this.model, 0x0a, undefined, undefined, undefined, deviceIp, false)
+
+		// Parse and store in deviceState
+		const parsed = parseGetAllSettingsForModel(this.model, response)
+		const stateMap = new Map<string, number>()
+		for (const setting of parsed) {
+			const key = `${setting.cmd_id}/${setting.id}`
+			stateMap.set(key, setting.valueBytes[0] ?? 0)
+		}
+		this.deviceState.set(deviceIp, stateMap)
+
+		// Return buffer for caller to parse if needed
+		return response
+	}
+
+	/** Return a snapshot of the current device state for a given IP (for feedbacks). */
+	public getDeviceState(deviceIp: string): Map<string, number> {
+		return this.deviceState.get(deviceIp) ?? new Map()
+	}
+
+	/**
+	 * Discovers Studio Technologies Dante devices on the local network.
+	 *
+	 * Strategy:
+	 *  Dante devices broadcast a 1-second announce to multicast 224.0.0.233:8708.
+	 *  We listen on that group, collect source IPs, then send a unicast device info
+	 *  request (0x0020) to each new IP on port 8700. The device responds to our IP
+	 *  on port 8702 (rxSocket), where handleIncoming() picks it up and fires the
+	 *  discoveryListeners callback.
+	 */
+	public async discoverDevices(timeoutMs = 5000): Promise<DeviceInfo[]> {
+		const DANTE_ANNOUNCE_GROUP = '224.0.0.233'
+		const DANTE_ANNOUNCE_PORT = 8708
+
+		const found = new Map<string, DeviceInfo>()
+		const queriedIps = new Set<string>()
+
+		return new Promise<DeviceInfo[]>((resolve) => {
+			// Register listener — handleIncoming() fires this for each 0x0170 response
+			const DISCOVERY_KEY = '__discovery__'
+			this.discoveryListeners.set(DISCOVERY_KEY, (device: DeviceInfo) => {
+				if (!found.has(device.ip)) {
+					found.set(device.ip, device)
+				}
 			})
 
-			socket.on('error', () => {
-				clearTimeout(timer)
-				socket.close()
-				resolve(Object.values(discovered))
+			// Open a short-lived socket just to receive the Dante periodic announces
+			const announceSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true })
+
+			const cleanup = () => {
+				this.discoveryListeners.delete(DISCOVERY_KEY)
+				try {
+					announceSocket.dropMembership(DANTE_ANNOUNCE_GROUP)
+				} catch {
+					/* ignore */
+				}
+				try {
+					announceSocket.close()
+				} catch {
+					/* ignore */
+				}
+				resolve(Array.from(found.values()))
+			}
+
+			const timer = setTimeout(cleanup, timeoutMs)
+			timer.unref?.()
+
+			announceSocket.on('error', (err) => {
+				logger.warn(`Announce socket error: ${err.message}`)
+			})
+
+			announceSocket.on('message', (msg, rinfo) => {
+				const srcIp = rinfo.address
+				// Validate it's a Dante announce (magic 0xfffe + "Audinate" at offset 16)
+				if (msg.length < 24) return
+				if (msg.readUInt16BE(0) !== 0xfffe) return
+				if (msg.slice(16, 24).toString('ascii') !== 'Audinate') return
+
+				if (queriedIps.has(srcIp)) return
+				queriedIps.add(srcIp)
+				logger.debug(`Announce from ${srcIp} — sending unicast query`)
+
+				// Join 224.0.0.231 on the interface that routes to this device BEFORE sending
+				// the query. The device multicasts its 0x0170 response to 224.0.0.231:8702
+				// in addition to unicasting it — rxSocket must be a member to receive it.
+				this.ensureMembershipFor(srcIp)
+					.then(async () => {
+						const query = StController.buildDanteInfoRequest()
+						await this.txReady
+						this.txSocket.send(query, this.defaultPort, srcIp, (err) => {
+							if (err) logger.warn(`Unicast query to ${srcIp} failed: ${err.message}`)
+						})
+					})
+					.catch((err) => logger.warn(`Query setup failed: ${err}`))
+			})
+
+			announceSocket.bind(DANTE_ANNOUNCE_PORT, () => {
+				try {
+					announceSocket.addMembership(DANTE_ANNOUNCE_GROUP)
+					logger.info(`Listening for Dante announces on ${DANTE_ANNOUNCE_GROUP}:${DANTE_ANNOUNCE_PORT}`)
+				} catch (err) {
+					logger.warn(`Could not join announce multicast group: ${err}`)
+				}
 			})
 		})
 	}
 
-	/* ----------------------------
-	 * Send / ACK
-	 * ---------------------------- */
+	/**
+	 * Builds a Dante device info request packet (type 0x0020).
+	 *
+	 * Packet layout (32 bytes) — derived from live capture analysis:
+	 *   0x00  uint16BE  Magic (0xffff)
+	 *   0x02  uint16BE  Message type (0x0020 = device info request)
+	 *   0x04  uint16BE  Sequence number (random)
+	 *   0x06  2 bytes   Padding
+	 *   0x08  6 bytes   Source MAC
+	 *   0x0e  2 bytes   Padding
+	 *   0x10  8 bytes   "Audinate" ASCII identifier
+	 *   0x18  2 bytes   Protocol version (0x0739)
+	 *   0x1a  2 bytes   Sub-type (0x00c1)
+	 *   0x1c  uint32BE  Capability mask (0x000f4240)
+	 */
+	private static buildDanteInfoRequest(): Buffer {
+		const buf = Buffer.alloc(32, 0)
+		const seq = Math.floor(Math.random() * 0xffff)
+
+		buf.writeUInt16BE(0xffff, 0)
+		buf.writeUInt16BE(DANTE_MSG_INFO_REQUEST, 2)
+		buf.writeUInt16BE(seq, 4)
+
+		const mac = StController.getFirstLocalMac()
+		mac.copy(buf, 8)
+
+		Buffer.from('Audinate', 'ascii').copy(buf, 16)
+		buf.writeUInt16BE(0x0739, 24)
+		buf.writeUInt16BE(0x00c1, 26)
+		buf.writeUInt32BE(0x000f4240, 28)
+
+		return buf
+	}
+
+	/** Returns the first non-loopback MAC as a 6-byte Buffer, or zeros. */
+	private static getFirstLocalMac(): Buffer {
+		try {
+			const ifaces = os.networkInterfaces()
+			for (const name of Object.keys(ifaces)) {
+				for (const addr of ifaces[name] ?? []) {
+					if (!addr.internal && addr.family === 'IPv4' && addr.mac && addr.mac !== '00:00:00:00:00:00') {
+						return Buffer.from(addr.mac.split(':').map((h: string) => parseInt(h, 16)))
+					}
+				}
+			}
+		} catch {
+			/* ignore */
+		}
+		return Buffer.alloc(6, 0)
+	}
 
 	/**
-	 * cmdId and settingId are passed directly; params contains values for that action.
+	 * Parses a Dante device info response (type 0x0170) into a DeviceInfo.
+	 *
+	 * Response layout (key offsets):
+	 *   0x08  8 bytes   EUI-64 — convert to MAC by dropping bytes [3] and [4] (ff:fe)
+	 *   0x10  8 bytes   "Audinate" identifier (used to verify this is a real response)
+	 *   0x18  1 byte    Dante FW major
+	 *   0x19  1 byte    Dante FW minor
+	 *   0x20  14 bytes  Device name (Dante label, user-configurable), null-padded ASCII
+	 *   0x2e  uint16BE  Product ID
+	 *   0x4c  64 bytes  Manufacturer, null-padded ASCII
+	 *   0xcc  64 bytes  Model string, null-padded ASCII
+	 *
+	 * Returns null if buffer is too short, wrong magic, or missing model string.
 	 */
+	private static parseDanteInfoResponse(msg: Buffer, srcIp: string): DeviceInfo | null {
+		if (msg.length < DANTE_INFO_MIN_LEN) return null
+		if (msg.readUInt16BE(0) !== 0xffff) return null
+		if (msg.readUInt16BE(2) !== DANTE_MSG_INFO_RESPONSE) return null
+		if (msg.slice(16, 24).toString('ascii') !== 'Audinate') return null
+
+		const readStr = (offset: number, len: number): string =>
+			msg
+				.slice(offset, offset + len)
+				.toString('ascii')
+				.split('\0')[0]
+				.trim()
+
+		const eui64 = msg.slice(8, 16)
+		const macBytes = [eui64[0], eui64[1], eui64[2], eui64[5], eui64[6], eui64[7]]
+		const mac = macBytes.map((b) => b.toString(16).padStart(2, '0')).join(':')
+
+		const name = readStr(0x20, 14) // Dante device label (user-configurable)
+		const manufacturer = readStr(0x4c, 64) // e.g. "Studio Technologies, Inc."
+		const modelRaw = readStr(0xcc, 64)
+		const firmware = `${msg[0x18]}.${msg[0x19]}`
+
+		if (!modelRaw) return null
+
+		// Extract just the model number/code (e.g. "Model 391 Alerting Unit" → "391")
+		// Strip "Model " prefix, then take only the first word (the model number)
+		const model = modelRaw
+			.replace(/^Model\s+/i, '')
+			.trim()
+			.split(/\s+/)[0]
+
+		return { ip: srcIp, name, manufacturer, model, mac, firmware }
+	}
+
+	/**
+	 * Ensure we've joined the multicast group on the interface that routes to destIp.
+	 * Option B behavior: join ONLY the interface used to reach the device.
+	 */
+	private async ensureMembershipFor(destIp: string): Promise<void> {
+		try {
+			const localAddr = await StController.getLocalAddressForDestination(destIp)
+			if (!localAddr) {
+				logger.warn(`Could not determine local address for destination ${destIp}`)
+				return
+			}
+
+			if (this.joinedInterfaces.has(localAddr)) {
+				// already joined
+				return
+			}
+
+			try {
+				this.rxSocket.addMembership(this.multicastGroup, localAddr)
+				this.joinedInterfaces.add(localAddr)
+				logger.info(`Joined multicast ${this.multicastGroup} on ${localAddr}`)
+			} catch (_e) {
+				logger.warn(`Failed to join multicast on ${localAddr}: ${String(_e)}`)
+			}
+		} catch (_e) {
+			logger.warn(`ensureMembershipFor failed: ${_e}`)
+		}
+	}
+
 	public async sendAwaitAck(
 		model: string,
 		cmdId: number,
@@ -85,116 +411,424 @@ export class StController {
 		settingId: number | undefined,
 		value: unknown,
 		destIp: string,
-		addLen: boolean = true,
+		addLen = true,
 	): Promise<Buffer> {
 		const timeoutMs = 2000
 
-		// Build data block: [len, settingId, value...]
-		let dataBlock: number[] = []
-		dataBlock = [settingId! & 0xff]
-		dataBlock = [...dataBlock, ...StController.buildValueBytes(value)]
+		// Ensure we are listening for replies on the interface that will receive them
+		await this.ensureMembershipFor(destIp)
 
-		// Build payload: [0x5A, cmdId, payloadLen, ...dataBlock, crc]
-		let payloadBody: number[] = [0x5a, cmdId & 0xff]
-		if (busCh !== undefined) payloadBody = [...payloadBody, busCh & 0xff] // additional "bus_chan" parameter for cmd_mic_pre_bus command
+		const dataBlock: number[] = []
+		if (settingId !== undefined) dataBlock.push(settingId & 0xff)
+		if (value !== undefined) dataBlock.push(...StController.buildValueBytes(value))
 
-		if (addLen) payloadBody = [...payloadBody, dataBlock.length]
-		payloadBody = [...payloadBody, ...dataBlock]
-		console.log(
-			'payloadBody:',
-			payloadBody.map((b) => b.toString(16).padStart(2, '0')),
-		)
+		const payloadBody: number[] = [0x5a, cmdId & 0xff]
+
+		if (busCh !== undefined) payloadBody.push(busCh & 0xff)
+		if (addLen) payloadBody.push(dataBlock.length)
+
+		if (dataBlock.length > 0) payloadBody.push(...dataBlock)
+
 		const crc = StController.crc8DvbS2(payloadBody)
-		const payloadWithCrc = [...payloadBody, crc]
-		console.log(
-			'payLoadWithCrc:',
-			payloadWithCrc.map((b) => b.toString(16).padStart(2, '0')),
-		)
+		const payloadWithCrc = Buffer.from([...payloadBody, crc])
 
-		// Header total length = header (24 bytes) + payloadWithCrc length
 		const totalLen = 24 + payloadWithCrc.length
+		const header = await StController.buildHeader(totalLen, destIp)
+		const packet = Buffer.concat([header, payloadWithCrc])
 
-		const header = Buffer.from(StController.buildHeader(totalLen))
-		const packet = Buffer.concat([header, Buffer.from(payloadWithCrc)])
+		// Log the Studio-T payload structure (similar to RX logging)
+		const magic = payloadWithCrc[0]
+		const cmd = payloadWithCrc[1]
+		const dataBytes = payloadWithCrc.slice(2, -1) // Everything between cmd and CRC
+		const crcByte = payloadWithCrc[payloadWithCrc.length - 1]
+		const payloadStructure = `[magic:0x${magic.toString(16).padStart(2, '0')} cmd:0x${cmd.toString(16).padStart(2, '0')} data:${dataBytes.toString('hex')} crc:0x${crcByte.toString(16).padStart(2, '0')}]`
 
-		const socket = dgram.createSocket('udp4')
-		return await new Promise<Buffer>((resolve, reject) => {
+		// Human-readable info log for the outgoing command
+		const cmdName = ST_CMD_NAMES[cmdId] ?? `cmd_0x${cmdId.toString(16).padStart(2, '0')}`
+		if (settingId !== undefined && value !== undefined) {
+			// Try exact match first
+			let action = this.actions.find((a) => a.cmd_id === cmdId && a.id === settingId)
+
+			// If no exact match, try to find action with idAdd option
+			if (!action) {
+				action = this.actions.find((a) => {
+					if (a.cmd_id !== cmdId) return false
+					const hasIdAdd = a.options?.some((opt) => opt.id === 'idAdd')
+					if (!hasIdAdd) return false
+					return settingId >= a.id && settingId < a.id + 10
+				})
+			}
+
+			let settingName = action?.name ?? 'Unknown Setting'
+
+			// If this action has idAdd and the setting id is offset from base, include channel info
+			if (action) {
+				const hasIdAdd = action.options?.some((opt) => opt.id === 'idAdd')
+				if (hasIdAdd && settingId !== action.id) {
+					const channelOffset = settingId - action.id
+					settingName = `${settingName} Ch${channelOffset + 1}`
+				}
+			}
+
+			// Look for the value option to get choices
+			const valueOption = action?.options?.find((opt) => opt.id === 'value')
+			const choices = valueOption?.choices
+			const valueBytes = StController.buildValueBytes(value)
+			const valueNum = valueBytes.length === 1 ? valueBytes[0] : undefined
+			const choiceLabel = choices && valueNum !== undefined ? choices.find((c) => c.id === valueNum)?.label : undefined
+
+			const cmdHex = `0x${cmdId.toString(16).padStart(2, '0')}`
+			const idHex = `0x${settingId.toString(16).padStart(2, '0')}`
+			const valHex = `0x${valueBytes.map((b) => b.toString(16).padStart(2, '0')).join('')}`
+			const valDec = valueBytes.length === 1 ? valueBytes[0] : valueBytes.join(',')
+
+			const prefix = `cmd:${cmdHex} id:${idHex} val:${valHex}`
+			const suffix = choiceLabel ? `${settingName}: ${choiceLabel} (${valDec})` : `${settingName}: ${valDec}`
+
+			logger.info(`TX ${destIp} | ${payloadStructure} | ${prefix} | ${suffix}`)
+		} else {
+			logger.info(`TX ${destIp} | ${payloadStructure} | ${cmdName}`)
+		}
+		logger.debug(`Sending packet to ${destIp}: ${packet.toString('hex')}`)
+
+		await this.txReady
+
+		const key = `${destIp}:${cmdId}`
+
+		return new Promise<Buffer>((resolve, reject) => {
 			const timer = setTimeout(() => {
-				socket.close()
-				reject(new Error(`Timeout waiting for ACK from Model${model} at ${destIp}:${this.defaultPort}`))
+				this.pendingAcks.delete(key)
+				reject(new Error(`Timeout waiting for ACK from Model${model} at ${destIp}:8700`))
 			}, timeoutMs)
 
-			socket.once('error', (err) => {
-				clearTimeout(timer)
-				socket.close()
-				reject(err)
-			})
-
-			socket.once('message', (msg) => {
-				clearTimeout(timer)
-				socket.close()
-				resolve(msg)
-			})
-
-			console.log('Sending', packet, `to Model${model} at ${destIp}:${this.defaultPort}`)
-			socket.send(packet, this.defaultPort, destIp, (err) => {
-				if (err) {
+			this.pendingAcks.set(key, {
+				resolve: (buf) => {
 					clearTimeout(timer)
-					socket.close()
+					resolve(buf)
+				},
+				reject: (err) => {
+					clearTimeout(timer)
 					reject(err)
+				},
+				timer,
+			})
+
+			this.txSocket.send(packet, this.defaultPort, destIp, (err) => {
+				if (err) {
+					this.pendingAcks.delete(key)
+					clearTimeout(timer)
+					reject(new Error(err.message ?? String(err)))
 				}
 			})
 		})
 	}
 
-	/* ----------------------------
-	 * Helpers
-	 * ---------------------------- */
+	private handleIncoming(msg: Buffer, srcIp: string) {
+		if (msg.length < 4) return
+		if (msg[0] !== 0xff || msg[1] !== 0xff) return
+
+		const msgType = msg.readUInt16BE(2)
+
+		// ── Dante device info response (0x0170) ──────────────────────────────
+		// These have "Audinate" at offset 16, not "Studio-T" — handle before
+		// the Studio-T signature check below.
+		if (msgType === DANTE_MSG_INFO_RESPONSE && this.discoveryListeners.size > 0) {
+			const device = StController.parseDanteInfoResponse(msg, srcIp)
+			if (device) {
+				for (const cb of this.discoveryListeners.values()) {
+					try {
+						cb(device)
+					} catch {
+						/* ignore */
+					}
+				}
+			}
+			return
+		}
+
+		if (msg.length < 25) return
+
+		// ── Studio-T control protocol ─────────────────────────────────────────
+		const sig = msg.subarray(16, 24)
+		if (sig.toString('ascii') !== 'Studio-T') return
+
+		// Payload starts at offset 24
+		// Layout: [0x5a] [cmdId|0x80] [data...] [crc]
+		const stPayload = msg.subarray(24)
+		if (stPayload.length < 2) return
+		if (stPayload[0] !== 0x5a) return
+
+		// Device replies with cmd | 0x80
+		const respCmdId = stPayload[1]
+		const isResponse = (respCmdId & 0x80) !== 0
+		const originalCmdId = respCmdId & 0x7f // strip the response flag
+
+		// Log the payload (works for both requests and responses)
+		this.logStPayload(srcIp, originalCmdId, msg, stPayload, isResponse)
+
+		// Only process as ACK if this is a response to our request
+		if (isResponse) {
+			const key = `${srcIp}:${originalCmdId}`
+			const pending = this.pendingAcks.get(key)
+			if (pending) {
+				this.pendingAcks.delete(key)
+				pending.resolve(msg)
+			}
+		}
+		// Unsolicited messages and requests from other sources are logged above
+	}
+
+	/**
+	 * Decodes and logs a Studio-T response payload.
+	 * Receives both the full msg (for parsers that need the Studio-T header)
+	 * and stPayload (msg.subarray(24), for direct byte access).
+	 *
+	 * stPayload layout:
+	 *   [0]      0x5a  magic
+	 *   [1]      cmdId | 0x80
+	 *   [2..-2]  data bytes
+	 *   [-1]     CRC-8/DVB-S2
+	 */
+	private logStPayload(srcIp: string, cmdId: number, msg: Buffer, stPayload: Buffer, isResponse = true): void {
+		const cmdName = ST_CMD_NAMES[cmdId] ?? `cmd_0x${cmdId.toString(16).padStart(2, '0')}`
+		const data = stPayload.subarray(2, stPayload.length - 1) // strip magic+cmdId header and CRC
+
+		// Show complete payload structure: [0x5a] [cmdId|0x80] [data bytes...] [crc]
+		const magic = stPayload[0]
+		const respCmdId = stPayload[1]
+		const crc = stPayload[stPayload.length - 1]
+		const fullStructure = `[magic:0x${magic.toString(16).padStart(2, '0')} cmd:0x${respCmdId.toString(16).padStart(2, '0')} data:${data.toString('hex')} crc:0x${crc.toString(16).padStart(2, '0')}]`
+
+		// Determine direction prefix
+		const direction = isResponse ? 'RX' : 'SNIFF'
+
+		// ── 0x0a (Get All Settings) and 0x0b (Settings Push) ───────────────────────
+		// Parse all settings, diff against deviceState, log changed at info / unchanged at debug,
+		// then update deviceState. 0x0a also serves as the initial state population on connect.
+		if (cmdId === 0x0a || cmdId === 0x0b) {
+			if (!this.model) {
+				logger.info(`${direction} ${srcIp} | ${cmdName} | ${fullStructure}`)
+				return
+			}
+			try {
+				const settings =
+					cmdId === 0x0b ? parseSettingsResponse(this.model, msg) : parseGetAllSettingsForModel(this.model, msg)
+
+				const prevState = this.deviceState.get(srcIp) ?? new Map<string, number>()
+				const newState = new Map<string, number>(prevState) // copy — update in place
+
+				for (const s of settings) {
+					const stateKey = `${s.cmd_id}/${s.id}`
+					const newValue = s.valueBytes[0] ?? 0
+					const prevValue = prevState.get(stateKey)
+					const changed = prevValue === undefined || prevValue !== newValue
+
+					newState.set(stateKey, newValue)
+
+					const formatted = formatParsedSetting(s, this.actions)
+					if (changed) {
+						logger.info(`${direction} ${srcIp} | ${formatted}`)
+					} else {
+						logger.debug(`${direction} ${srcIp} | ${formatted}`)
+					}
+				}
+
+				this.deviceState.set(srcIp, newState)
+			} catch (e) {
+				logger.warn(`${direction} ${srcIp} | ${cmdName} | parse failed: ${e} | ${fullStructure}`)
+			}
+			return
+		}
+
+		// ── All other commands ────────────────────────────────────────────────────
+		const decoded = this.decodeStData(cmdId, data)
+		if (decoded) {
+			logger.info(`${direction} ${srcIp} | ${cmdName} | ${fullStructure} | ${decoded}`)
+		} else {
+			logger.info(`${direction} ${srcIp} | ${cmdName} | ${fullStructure}`)
+		}
+	}
+
+	/**
+	 * Attempts to decode the data bytes of a Studio-T response into a
+	 * human-readable string. Returns null to fall back to raw hex.
+	 *
+	 * msg is the full packet buffer — required by the settings parsers which
+	 * locate the Studio-T signature themselves.
+	 */
+	private decodeStData(cmdId: number, data: Buffer): string | null {
+		if (data.length === 0) return 'ACK'
+
+		// ── Check for single-byte responses (ACK or error) ──────────
+		if (data.length === 1) {
+			if (data[0] === 0x00) {
+				return 'ACK ok'
+			} else {
+				return `ERROR 0x${data[0].toString(16).padStart(2, '0')}`
+			}
+		}
+
+		switch (cmdId) {
+			// ── 0x0d: single-byte ACK or echo of applied setting ─────────────
+			// Device sends two 0x0d packets in response to a set:
+			//   1. ACK:  [status]               (1 byte, 0x00 = ok)
+			//   2. Echo: [busCh] [settingId] [value...]  (confirming what was applied)
+			case 0x0d: {
+				if (data.length === 1) {
+					return data[0] === 0x00 ? 'ACK ok' : `ACK err=0x${data[0].toString(16).padStart(2, '0')}`
+				}
+				if (data.length >= 3) {
+					const busCh = data[0]
+					const settingId = data[1]
+					const valueBytes = data.subarray(2)
+					const action = this.actions.find((a) => a.cmd_id === cmdId && a.id === settingId)
+					const settingName = action?.name ?? `setting=0x${settingId.toString(16).padStart(2, '0')}`
+					const choices = action?.options?.[0]?.choices
+					const valueNum = valueBytes.length === 1 ? valueBytes[0] : undefined
+					const choiceLabel =
+						choices && valueNum !== undefined ? choices.find((c) => c.id === valueNum)?.label : undefined
+					const valueStr = choiceLabel
+						? `${choiceLabel} (0x${valueNum!.toString(16).padStart(2, '0')})`
+						: `0x${Array.from(valueBytes)
+								.map((b) => b.toString(16).padStart(2, '0'))
+								.join('')}`
+					const rawTag = `[0x${cmdId.toString(16).padStart(2, '0')}/0x${settingId.toString(16).padStart(2, '0')}]=0x${Array.from(
+						valueBytes,
+					)
+						.map((b) => b.toString(16).padStart(2, '0'))
+						.join('')}`
+					return `echo ch=${busCh} | ${settingName}: ${valueStr} ${rawTag}`
+				}
+				return `raw: ${data.toString('hex')}`
+			}
+
+			// ── 0x12 (Mic Gain/Electret): Multi-byte echo responses ──────────
+			case 0x12: {
+				// Already handled single-byte above, so multi-byte must be echo
+				if (data.length >= 3) {
+					const busCh = data[0]
+					const settingId = data[1]
+					const valueBytes = data.subarray(2)
+					const action = this.actions.find((a) => a.cmd_id === cmdId && a.id === settingId)
+					const settingName = action?.name ?? `setting=0x${settingId.toString(16).padStart(2, '0')}`
+					const valueNum = valueBytes.length === 1 ? valueBytes[0] : undefined
+					const choices = action?.options?.find((o) => o.id === 'value')?.choices
+					const choiceLabel =
+						choices && valueNum !== undefined ? choices.find((c) => c.id === valueNum)?.label : undefined
+					const valueStr = choiceLabel ?? `0x${valueBytes.toString('hex')}`
+					return `echo ch=${busCh} | ${settingName}: ${valueStr}`
+				}
+				return null
+			}
+
+			// ── Bus-scoped get/set ────────────────────────────────────────────
+			case 0x03:
+			case 0x04: {
+				if (data.length < 2) return null
+				const busCh = data[0]
+				const settingId = data[1]
+				const value = data.subarray(2)
+				return `ch=${busCh} setting=0x${settingId.toString(16).padStart(2, '0')} value=${value.toString('hex')}`
+			}
+
+			default:
+				return null // fall through to raw hex
+		}
+	}
 
 	private static buildValueBytes(value: unknown): number[] {
 		if (typeof value === 'boolean') return [value ? 1 : 0]
 		if (Array.isArray(value)) return value.map((v) => Number(v) & 0xff)
 		if (typeof value === 'number') {
-			// Handle 24-bit RGB numbers
-			if (value > 0xff) {
-				return [
-					(value >> 16) & 0xff, // red
-					(value >> 8) & 0xff, // green
-					value & 0xff, // blue
-				]
-			}
+			if (value > 0xff) return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff]
 			return [value & 0xff]
 		}
 		throw new Error(`Unsupported value type for STcontroller: ${value}`)
 	}
 
-	private static buildHeader(totalLength: number): number[] {
-		return [
-			0xff,
-			0xff,
-			0x00,
-			totalLength & 0xff,
-			0x07,
-			0xe1,
-			0x00,
-			0x00,
-			0x90,
-			0xb1,
-			0x1c,
-			0x5b,
-			0xd2,
-			0x85,
-			0x00,
-			0x00,
-			0x53,
-			0x74,
-			0x75,
-			0x64,
-			0x69,
-			0x6f,
-			0x2d,
-			0x54,
-		]
+	/**
+	 * Returns the local IP address used by the OS to route to destIp.
+	 * Uses a temporary UDP socket connect to let the OS select the outgoing interface.
+	 */
+	private static async getLocalAddressForDestination(destIp: string): Promise<string> {
+		return new Promise<string>((resolve, reject) => {
+			const tmp = dgram.createSocket('udp4')
+
+			let resolved = false
+			tmp.once('error', (err) => {
+				if (!resolved) {
+					resolved = true
+					tmp.close()
+					reject(new Error(err.message ?? String(err)))
+				}
+			})
+
+			// Use an arbitrary port for connect; we only need the kernel to assign a local address.
+			tmp.connect(9, destIp, () => {
+				try {
+					const addr = tmp.address() as { address: string }
+					const localAddr = addr.address
+					if (!resolved) {
+						resolved = true
+						tmp.close()
+						resolve(localAddr)
+					}
+				} catch (_e) {
+					if (!resolved) {
+						resolved = true
+						tmp.close()
+						reject(new Error(String(_e)))
+					}
+				}
+			})
+		})
+	}
+
+	private static async getMacForDestination(destIp: string): Promise<number[]> {
+		return new Promise<number[]>((resolve, reject) => {
+			const tmp = dgram.createSocket('udp4')
+
+			tmp.once('error', (err) => {
+				tmp.close()
+				reject(new Error(err.message ?? String(err)))
+			})
+
+			tmp.connect(9, destIp, () => {
+				try {
+					const addr = tmp.address() as { address: string }
+					const localAddr = addr.address
+
+					tmp.close()
+
+					const ifaces = os.networkInterfaces()
+					for (const name of Object.keys(ifaces)) {
+						for (const iface of ifaces[name] ?? []) {
+							if (
+								iface.family === 'IPv4' &&
+								iface.address === localAddr &&
+								iface.mac &&
+								iface.mac !== '00:00:00:00:00:00'
+							) {
+								return resolve(iface.mac.split(':').map((b) => parseInt(b, 16) & 0xff))
+							}
+						}
+					}
+
+					reject(new Error(`No interface found for local address ${localAddr}`))
+				} catch (_e) {
+					reject(new Error(String(_e)))
+				}
+			})
+		})
+	}
+
+	private static async buildHeader(totalLen: number, destIp: string): Promise<Buffer> {
+		const mac = await StController.getMacForDestination(destIp)
+
+		return Buffer.concat([
+			Buffer.from([0xff, 0xff, 0x00, totalLen & 0xff, 0x07, 0xe1, 0x00, 0x00, ...mac, 0x00, 0x00]),
+			Buffer.from('Studio-T', 'utf8'),
+		])
 	}
 
 	private static crc8DvbS2(data: number[]): number {
@@ -208,11 +842,23 @@ export class StController {
 		return crc
 	}
 
-	public async getAllSettings(model: string, destIp: string): Promise<Buffer> {
-		return await this.sendAwaitAck(model, 0x0a, undefined, undefined, undefined, destIp, false)
+	/**
+	 * Returns the current known value for a setting on a device, or undefined if unknown.
+	 * Use for feedbacks — value is updated on every 0x0b push from the device.
+	 *
+	 * @param ip        Device IP address
+	 * @param cmdId     Command ID (e.g. 0x0d)
+	 * @param settingId Setting ID (e.g. 0x02 for Control Source)
+	 */
+	public getSettingValue(ip: string, cmdId: number, settingId: number): number | undefined {
+		return this.deviceState.get(ip)?.get(`${cmdId}/${settingId}`)
 	}
 
 	public async resetDevice(model: string, destIp: string): Promise<Buffer> {
-		return await this.sendAwaitAck(model, 0x0e, undefined, 0x00, undefined, destIp, false)
+		return this.sendAwaitAck(model, 0x0e, undefined, 0x00, undefined, destIp, false)
+	}
+
+	public async globalMicKill(model: string, destIp: string): Promise<Buffer> {
+		return this.sendAwaitAck(model, 0x10, undefined, undefined, undefined, destIp, false)
 	}
 }

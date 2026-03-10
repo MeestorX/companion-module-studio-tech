@@ -17,29 +17,674 @@
 		},
 		{
 			"cmd_id": 13,
+			"id": 0,
+			"name": "Active Mode",
+			"options": [
+				{
+					"id": "value",
+					"label": "Mode",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 1,
+							"label": "Mode 1"
+						},
+						{
+							"id": 2,
+							"label": "Mode 2"
+						}
+					],
+					"default": 1,
+					"tooltip": "Set the Active Mode"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 1,
+			"name": "Unknown Setting 0x01",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 1
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 2,
+			"name": "Mode 1 Control Source",
+			"options": [
+				{
+					"id": "value",
+					"label": "Call",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 1,
+							"label": "20khz Tone Detect - Ch1"
+						},
+						{
+							"id": 2,
+							"label": "20khz Tone Detect - Ch2"
+						},
+						{
+							"id": 3,
+							"label": "20khz Tone Detect - Ch1 & Ch2"
+						},
+						{
+							"id": 4,
+							"label": "UDP Commands"
+						}
+					],
+					"default": 4,
+					"tooltip": "Select the Call Control Source for Mode 1"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 3,
+			"name": "Mode 1 Visual Status",
+			"options": [
+				{
+					"id": "value",
+					"label": "Status",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Off"
+						},
+						{
+							"id": 1,
+							"label": "On when Call Active"
+						},
+						{
+							"id": 2,
+							"label": "Always On"
+						}
+					],
+					"default": 1,
+					"tooltip": "Set the Visual Indicator Status for Mode 1"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
 			"id": 4,
-			"name": "Light Color Mode 1",
+			"name": "Mode 1 Light Color",
 			"options": [
 				{
 					"id": "value",
 					"label": "Color",
 					"type": "colorpicker",
-					"default": "#000000",
-					"tooltip": "Set RGB color for Light Color Mode 1"
+					"default": 0,
+					"tooltip": "Set RGB color for Light Color for Mode 1"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 5,
+			"name": "Mode 1 Intensity",
+			"options": [
+				{
+					"id": "value",
+					"label": "Intensity",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Low"
+						},
+						{
+							"id": 1,
+							"label": "Medium"
+						},
+						{
+							"id": 2,
+							"label": "High"
+						}
+					],
+					"default": 0,
+					"tooltip": "Set the Intensity Level for Mode 1"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 6,
+			"name": "Mode 1 Minimum On Time",
+			"options": [
+				{
+					"id": "value",
+					"label": "Minimum On",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Follow Call"
+						},
+						{
+							"id": 2,
+							"label": "2 Seconds"
+						},
+						{
+							"id": 4,
+							"label": "4 Seconds"
+						},
+						{
+							"id": 6,
+							"label": "6 Seconds"
+						}
+					],
+					"default": 6,
+					"tooltip": "Set the minimum On time for the Indicator for Mode 1"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 7,
+			"name": "Mode 1 Flash Action",
+			"options": [
+				{
+					"id": "value",
+					"label": "Action",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Continuous"
+						},
+						{
+							"id": 1,
+							"label": "Slow Flash"
+						},
+						{
+							"id": 2,
+							"label": "Fast Flash"
+						},
+						{
+							"id": 3,
+							"label": "Pulse"
+						}
+					],
+					"default": 3,
+					"tooltip": "Set the Flash Type for Mode 1"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 8,
+			"name": "Mode 1 Audio Alert Status",
+			"options": [
+				{
+					"id": "value",
+					"label": "Status",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Off"
+						},
+						{
+							"id": 1,
+							"label": "Low Range"
+						},
+						{
+							"id": 2,
+							"label": "High Range"
+						}
+					],
+					"default": 2,
+					"tooltip": "Set the Audio Alert Type for Mode 1"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 9,
+			"name": "Mode 1 Audio Alert On Delay",
+			"options": [
+				{
+					"id": "value",
+					"label": "On Delay",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Follow Call"
+						},
+						{
+							"id": 1,
+							"label": "Low Range"
+						},
+						{
+							"id": 2,
+							"label": "2 Seconds"
+						},
+						{
+							"id": 4,
+							"label": "4 Seconds"
+						},
+						{
+							"id": 6,
+							"label": "6 Seconds"
+						}
+					],
+					"default": 6,
+					"tooltip": "Set the Audio Alert On Delay for Mode 1"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 10,
+			"name": "Mode 1 Audio Alert Action",
+			"options": [
+				{
+					"id": "value",
+					"label": "Action",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Continuous"
+						},
+						{
+							"id": 2,
+							"label": "Slow Beep"
+						},
+						{
+							"id": 3,
+							"label": "Fast Beep"
+						},
+						{
+							"id": 4,
+							"label": "Pulse"
+						}
+					],
+					"default": 2,
+					"tooltip": "Set the Audio Alert Type for Mode 1"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 11,
+			"name": "Mode 1 Line Out Mode",
+			"options": [
+				{
+					"id": "value",
+					"label": "Line Out",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Off"
+						},
+						{
+							"id": 1,
+							"label": "Always On - Ch1"
+						},
+						{
+							"id": 2,
+							"label": "Always On - Ch2"
+						},
+						{
+							"id": 3,
+							"label": "On when Call Active"
+						},
+						{
+							"id": 4,
+							"label": "Always On - Ch1 & Ch2"
+						}
+					],
+					"default": 4,
+					"tooltip": "Set Line Out Mode for Mode 1"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 12,
+			"name": "Mode 2 Enable",
+			"options": [
+				{
+					"id": "value",
+					"label": "Enabled",
+					"type": "checkbox",
+					"default": 1,
+					"tooltip": "Enable Mode 2?"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 13,
+			"name": "Mode 2 Control Source",
+			"options": [
+				{
+					"id": "value",
+					"label": "Call",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 1,
+							"label": "20khz Tone Detect - Ch1"
+						},
+						{
+							"id": 2,
+							"label": "20khz Tone Detect - Ch2"
+						},
+						{
+							"id": 3,
+							"label": "20khz Tone Detect - Ch1 & Ch2"
+						},
+						{
+							"id": 4,
+							"label": "UDP Commands"
+						}
+					],
+					"default": 4,
+					"tooltip": "Select the Call Control Source for Mode 2"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 14,
+			"name": "Mode 2 Visual Status",
+			"options": [
+				{
+					"id": "value",
+					"label": "Status",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Off"
+						},
+						{
+							"id": 1,
+							"label": "On when Call Active"
+						},
+						{
+							"id": 2,
+							"label": "Always On"
+						}
+					],
+					"default": 0,
+					"tooltip": "Set Visual Indicator Status for Mode 2"
 				}
 			]
 		},
 		{
 			"cmd_id": 13,
 			"id": 15,
-			"name": "Light Color Mode 2",
+			"name": "Mode 2 Light Color",
 			"options": [
 				{
 					"id": "value",
 					"label": "Color",
 					"type": "colorpicker",
-					"default": "#000000",
-					"tooltip": "Set RGB color for Light Color Mode 2"
+					"default": 255,
+					"tooltip": "Set RGB color for Light Color for Mode 2"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 16,
+			"name": "Mode 2 Intensity",
+			"options": [
+				{
+					"id": "value",
+					"label": "Intensity",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Low"
+						},
+						{
+							"id": 1,
+							"label": "Medium"
+						},
+						{
+							"id": 2,
+							"label": "High"
+						}
+					],
+					"default": 2,
+					"tooltip": "Set the Intensity Level for Mode 2"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 17,
+			"name": "Mode 2 Minimum On Time",
+			"options": [
+				{
+					"id": "value",
+					"label": "Minimum On",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Follow Call"
+						},
+						{
+							"id": 2,
+							"label": "2 Seconds"
+						},
+						{
+							"id": 4,
+							"label": "4 Seconds"
+						},
+						{
+							"id": 6,
+							"label": "6 Seconds"
+						}
+					],
+					"default": 2,
+					"tooltip": "Set the minimum On time for the Indicator for Mode 2"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 18,
+			"name": "Mode 2 Flash Action",
+			"options": [
+				{
+					"id": "value",
+					"label": "Action",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Continuous"
+						},
+						{
+							"id": 1,
+							"label": "Slow Flash"
+						},
+						{
+							"id": 2,
+							"label": "Fast Flash"
+						},
+						{
+							"id": 3,
+							"label": "Pulse"
+						}
+					],
+					"default": 0,
+					"tooltip": "Set the Flash Type for Mode 2"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 19,
+			"name": "Mode 2 Audio Alert Status",
+			"options": [
+				{
+					"id": "value",
+					"label": "Status",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Off"
+						},
+						{
+							"id": 1,
+							"label": "Low Range"
+						},
+						{
+							"id": 2,
+							"label": "High Range"
+						}
+					],
+					"default": 2,
+					"tooltip": "Set the Audio Alert Type for Mode 2"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 20,
+			"name": "Mode 2 Audio Alert On Delay",
+			"options": [
+				{
+					"id": "value",
+					"label": "On Delay",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Follow Call"
+						},
+						{
+							"id": 1,
+							"label": "Low Range"
+						},
+						{
+							"id": 2,
+							"label": "2 Seconds"
+						},
+						{
+							"id": 4,
+							"label": "4 Seconds"
+						},
+						{
+							"id": 6,
+							"label": "6 Seconds"
+						}
+					],
+					"default": 6,
+					"tooltip": "Set the Audio Alert On Delay for Mode 2"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 21,
+			"name": "Mode 2 Audio Alert Action",
+			"options": [
+				{
+					"id": "value",
+					"label": "Action",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Continuous"
+						},
+						{
+							"id": 2,
+							"label": "Slow Beep"
+						},
+						{
+							"id": 3,
+							"label": "Fast Beep"
+						},
+						{
+							"id": 4,
+							"label": "Pulse"
+						}
+					],
+					"default": 4,
+					"tooltip": "Set the Audio Alert Type for Mode 2"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 22,
+			"name": "Mode 2 Line Out Mode",
+			"options": [
+				{
+					"id": "value",
+					"label": "Line Out",
+					"type": "dropdown",
+					"choices": [
+						{
+							"id": 0,
+							"label": "Off"
+						},
+						{
+							"id": 1,
+							"label": "Always On - Ch1"
+						},
+						{
+							"id": 2,
+							"label": "Always On - Ch2"
+						},
+						{
+							"id": 3,
+							"label": "On when Call Active"
+						},
+						{
+							"id": 4,
+							"label": "Always On - Ch1 & Ch2"
+						}
+					],
+					"default": 4,
+					"tooltip": "Set Line Out Mode for Mode 2"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 50,
+			"name": "Unknown Setting 0x32",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 0
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 255,
+			"name": "Unknown Setting 0xFF",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 255
 				}
 			]
 		}

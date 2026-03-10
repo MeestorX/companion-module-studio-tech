@@ -1,12 +1,14 @@
 {
+	"$schema": "../node_modules/@companion-module/base/assets/manifest.schema.json",
 	"id": "studio-tech",
-	"name": "companion-module-studio-tech",
-	"shortname": "studio-tech",
+	"name": "studio tech",
+	"shortname": "ST",
 	"description": "A Companion module for controlling Studio Technologies devices.",
-	"version": "0.1.4",
+	"version": "0.3.0",
+	"type": "connection",
 	"license": "MIT",
 	"repository": "git+https://github.com/MeestorX/companion-module-studio-tech.git",
-	"bugs": "https://github.com/MeestorX/companion-module-studio-tech/issues",
+	"bugs": "https://discourse.checkcheckonetwo.com/c/software/stream-deck-companion/14",
 	"maintainers": [
 		{
 			"name": "Andrew Broughton",
@@ -17,7 +19,10 @@
 		"type": "node22",
 		"api": "nodejs-ipc",
 		"apiVersion": "0.0.0",
-		"entrypoint": "../dist/main.js"
+		"entrypoint": "../dist/main.js",
+		"permissions": {
+			"filesystem": true
+		}
 	},
 	"legacyIds": [],
 	"manufacturer": "Studio Technologies",

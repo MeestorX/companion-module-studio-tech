@@ -1,4 +1,4 @@
-import type { ModuleInstance } from './main.js'
+import ModuleInstance from './main.js'
 import { buildFeedbacks } from './build-commands.js'
 
 /**
