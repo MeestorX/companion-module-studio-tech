@@ -1,35 +1,16 @@
 /**
  * build-commands.ts
- * - Loads ./devices/*.json (UI schemas)
+ * - Uses centralized device schema cache from config.ts
  * - Produces Companion action definitions and feedbacks
  */
 
-import fs from 'fs'
-import path from 'path'
 import {
 	CompanionActionDefinitions,
 	CompanionActionDefinition,
 	CompanionFeedbackDefinitions,
 } from '@companion-module/base'
 import { makeSettingId } from './types.js'
-
-const devicesFolder = path.join(import.meta.dirname, '../devices')
-
-/* ----------------------------- */
-/* --------- Load JSON --------- */
-/* ----------------------------- */
-
-export function loadUiSchemas(dir = devicesFolder): Record<string, any> {
-	const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'))
-	const out: Record<string, any> = {}
-
-	for (const f of files) {
-		const j = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))
-		out[j.model] = j
-	}
-
-	return out
-}
+import { getDeviceSchemas } from './config.js'
 
 /* ----------------------------- */
 /* ------ Option Builder ------- */
@@ -72,8 +53,8 @@ function buildOption(o: any): any {
 /* --------- Actions ----------- */
 /* ----------------------------- */
 
-export function buildActions(dir = devicesFolder): CompanionActionDefinitions {
-	const schemas = loadUiSchemas(dir)
+export function buildActions(): CompanionActionDefinitions {
+	const schemas = getDeviceSchemas()
 	const actions: CompanionActionDefinitions = {}
 
 	for (const [model, schema] of Object.entries(schemas)) {
@@ -104,8 +85,8 @@ export function buildActions(dir = devicesFolder): CompanionActionDefinitions {
 /* --------- Feedbacks --------- */
 /* ----------------------------- */
 
-export function buildFeedbacks(dir = devicesFolder): CompanionFeedbackDefinitions {
-	const schemas = loadUiSchemas(dir)
+export function buildFeedbacks(): CompanionFeedbackDefinitions {
+	const schemas = getDeviceSchemas()
 	const feedbacks: CompanionFeedbackDefinitions = {}
 
 	for (const [model, schema] of Object.entries(schemas)) {

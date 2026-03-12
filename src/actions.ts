@@ -1,34 +1,23 @@
 import ModuleInstance from './main.js'
-import { buildActions, loadUiSchemas } from './build-commands.js'
-import { resolveModel } from './config.js'
+import { buildActions } from './build-commands.js'
+import { resolveModel, getDevicesFolder, getDeviceSchema, getDeviceSchemas, reloadDeviceSchemas } from './config.js'
+import { parseSettingId, getNormalizedSchemas } from './types.js'
+import { createModuleLogger } from '@companion-module/base'
 import path from 'path'
 
-// For GET ALL SETTINGS ACTION
-import fs from 'fs'
-import {
-	parseGetAllSettingsForModel,
-	saveModelJsonPretty,
-	updateModelJsonFromSettings,
-	StModelJson,
-} from './settingsParser.js'
+import { parseGetAllSettingsWithDetection, saveModelJsonPretty, updateModelJsonFromSettings } from './settingsParser.js'
+
+const logger = createModuleLogger('Actions')
 
 export function UpdateActions(self: ModuleInstance): void {
-	const devicesFolder = path.join(import.meta.dirname, '../devices')
-
-	const schemasRaw = loadUiSchemas(devicesFolder)
-	const rawActions = buildActions(devicesFolder)
-	const schemas: Record<string, StModelJson> = {}
-	for (const [model, json] of Object.entries(schemasRaw)) {
-		schemas[model] = {
-			model: json.model,
-			actions: Array.isArray(json.cmdSchema) ? json.cmdSchema : [],
-		}
-	}
+	const schemasRaw = getDeviceSchemas()
+	const rawActions = buildActions()
+	const schemas = getNormalizedSchemas(schemasRaw)
 	const wiredActions: any = {}
 
 	// Get the active model using resolveModel
 	const activeModel = resolveModel(self.config, self.devices)
-	console.log(
+	logger.info(
 		`UpdateActions: activeModel="${activeModel}", discoveredHost="${self.config.discoveredHost}", devices count=${self.devices.length}`,
 	)
 
@@ -45,19 +34,35 @@ export function UpdateActions(self: ModuleInstance): void {
 
 			const buf = await self.stController.requestAllSettings(ip)
 
-			const schemaPath = path.join(devicesFolder, `model${model}.json`)
-			const modelJson = JSON.parse(fs.readFileSync(schemaPath, 'utf8'))
+			// Use centralized cache to get the schema
+			let modelJson = getDeviceSchema(model)
+			if (!modelJson) {
+				logger.error(`Model ${model} schema not found in cache`)
+				return
+			}
 
-			// Model-aware parsing
-			const parsed = parseGetAllSettingsForModel(model, buf)
-			console.log('parsed reply: ', parsed)
+			// Parse with auto-detection
+			const { settings: parsed, detectedSectioned } = parseGetAllSettingsWithDetection(model, buf)
+			logger.debug(`parsed reply: ${JSON.stringify(parsed)}`)
+
+			// If we auto-detected the format, add it to the JSON
+			if (detectedSectioned !== null) {
+				logger.info(`Auto-detected sectioned=${detectedSectioned}, adding to model JSON`)
+				modelJson = { ...modelJson, sectioned: detectedSectioned }
+			}
 
 			const updated = updateModelJsonFromSettings(modelJson, parsed, schemas)
-			console.log('new Actions json: ', JSON.stringify(updated, null, 2))
+			logger.debug(`new Actions json: ${JSON.stringify(updated, null, 2)}`)
 
+			// Save the updated JSON to disk
+			const devicesFolder = getDevicesFolder()
+			const schemaPath = path.join(devicesFolder, `Model${model}.json`)
 			saveModelJsonPretty(schemaPath, updated)
 
-			console.log(`Model ${model} JSON auto-updated from getAllSettings`)
+			// Reload the cache after writing to file
+			reloadDeviceSchemas()
+
+			logger.info(`Model ${model} JSON auto-updated from getAllSettings`)
 		},
 	}
 
@@ -66,18 +71,14 @@ export function UpdateActions(self: ModuleInstance): void {
 	// ---------------------------------------------
 
 	for (const [actionId, action] of Object.entries(rawActions)) {
-		const [model, cmdIdStr, idStr] = actionId.split('_')
+		const { model, cmdId, baseId } = parseSettingId(actionId)
 
 		// Only include actions for the currently active model
 		if (model !== activeModel) continue
 
-		// Parse hex strings from actionId (e.g., "391_d_0" → cmdId=13, baseId=0)
-		const cmdId = parseInt(cmdIdStr, 16)
-		const baseId = parseInt(idStr, 16)
-
 		// Get the raw action schema to access fixed busCh value
 		const schema = schemas[model]
-		const rawAction = schema?.actions?.find((a: any) => a.cmd_id === cmdId && a.id === baseId)
+		const rawAction = schema?.cmdSchema?.find((a: any) => a.cmd_id === cmdId && a.id === baseId)
 
 		wiredActions[actionId] = {
 			...action,
@@ -99,7 +100,7 @@ export function UpdateActions(self: ModuleInstance): void {
 	// ---------------------------------------------
 	const activeSchema = schemas[activeModel]
 	if (activeSchema) {
-		const supportsMicKill = (activeSchema.actions ?? []).some((a: any) => a.name.includes('Kill'))
+		const supportsMicKill = (activeSchema.cmdSchema ?? []).some((a: any) => a.name.includes('Kill'))
 
 		if (supportsMicKill) {
 			const actionId = `${activeModel}_micKill`
@@ -109,7 +110,7 @@ export function UpdateActions(self: ModuleInstance): void {
 				options: [],
 				callback: async () => {
 					const ip = self.host
-					console.log(`Mic Kill → Model ${activeModel} @ ${ip}`)
+					logger.info(`Mic Kill → Model ${activeModel} @ ${ip}`)
 					await self.stController.globalMicKill(activeModel, ip)
 				},
 			}
@@ -118,5 +119,5 @@ export function UpdateActions(self: ModuleInstance): void {
 
 	self.setActionDefinitions(wiredActions)
 
-	console.log('UpdateActions: wired actions:', Object.keys(wiredActions).length)
+	logger.info(`UpdateActions: wired actions: ${Object.keys(wiredActions).length}`)
 }

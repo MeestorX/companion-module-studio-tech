@@ -1,4 +1,3 @@
-import path from 'path'
 import {
 	InstanceTypes,
 	InstanceBase,
@@ -6,19 +5,17 @@ import {
 	SomeCompanionConfigField,
 	createModuleLogger,
 } from '@companion-module/base'
-import { GetConfigFields, resolveHost, resolveModel, type ModuleConfig } from './config.js'
-import { UpdateVariableDefinitions } from './variables.js'
+import { GetConfigFields, resolveHost, resolveModel, getDeviceSchema, type ModuleConfig } from './config.js'
+import { UpdateVariableDefinitions, UpdateVariableValues } from './variables.js'
 import { UpgradeScripts } from './upgrades.js'
 import { UpdateActions } from './actions.js'
 import { UpdateFeedbacks } from './feedbacks.js'
 import { StController } from './stcontroller.js'
-import { loadModelConfig } from './settingsParser.js'
 import type { DeviceInfo } from './types.js'
 
 const logger = createModuleLogger('ModuleInstance')
-const devicesFolder = path.join(import.meta.dirname, '../devices')
 
-export interface ModuleTypes extends InstanceTypes {
+export type ModuleTypes = InstanceTypes & {
 	config: ModuleConfig
 }
 
@@ -50,6 +47,18 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 			for (const d of this.discoveredDevices) {
 				logger.info(`  - Model ${d.model} ${d.manufacturer ?? ''} @ ${d.ip}`)
 			}
+
+			// Request device firmware from each discovered device via Studio-T protocol
+			for (const device of this.discoveredDevices) {
+				try {
+					const firmware = await this.stController.requestFirmwareVersion(device.ip)
+					device.firmwareMain = firmware
+					logger.info(`  - ${device.ip}: Firmware ${firmware}, Dante ${device.danteFirmware}`)
+				} catch (e) {
+					logger.warn(`  - ${device.ip}: Failed to get firmware: ${e}`)
+					device.firmwareMain = 'Unknown'
+				}
+			}
 		}
 
 		// Load device schema and sync to controller for message decoding
@@ -66,6 +75,7 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		this.updateActions()
 		this.updateFeedbacks()
 		this.updateVariableDefinitions()
+		this.updateVariableValues() // Set initial variable values from discovered device
 
 		// Fetch initial settings state from the configured device only
 		const targetHost = this.host
@@ -94,6 +104,7 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		this.updateActions()
 		this.updateFeedbacks()
 		this.updateVariableDefinitions()
+		this.updateVariableValues() // Update variable values when config changes
 
 		// If the host changed, request settings from the new device
 		const newHost = this.host
@@ -108,12 +119,23 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 
 	/** Loads the device JSON for the given model and pushes it to the controller. */
 	private syncModel(model: string): void {
-		const { actions, refreshAfterCommand } = loadModelConfig(devicesFolder, model)
+		const schema = getDeviceSchema(model)
+		if (!schema) {
+			logger.warn(`Model "${model}" not found in device schemas`)
+			this.stController.setModel(model, [], true)
+			return
+		}
+
+		const actions = Array.isArray(schema.cmdSchema) ? schema.cmdSchema : []
+		const refreshAfterCommand = schema.refreshAfterCommand ?? true // Default to true if not specified
+
 		this.stController.setModel(model, actions, refreshAfterCommand)
 		if (actions.length === 0) {
 			logger.warn(`No actions found for model "${model}" — settings decoding will use raw IDs`)
 		} else {
-			logger.debug(`Loaded ${actions.length} actions for model "${model}", refreshAfterCommand=${refreshAfterCommand}`)
+			logger.debug(
+				`Loaded ${actions.length} actions for model "${model}", sectioned=${schema.sectioned}, refreshAfterCommand=${refreshAfterCommand}`,
+			)
 		}
 	}
 
@@ -144,6 +166,10 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 
 	updateVariableDefinitions(): void {
 		UpdateVariableDefinitions(this)
+	}
+
+	updateVariableValues(): void {
+		UpdateVariableValues(this)
 	}
 }
 

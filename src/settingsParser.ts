@@ -1,5 +1,6 @@
 import fs from 'fs'
-import path from 'path'
+import { getDeviceSchema } from './config.js'
+import { createModuleLogger } from '@companion-module/base'
 import {
 	CMD_BUS_SET,
 	CMD_CHANNEL,
@@ -7,20 +8,26 @@ import {
 	CMD_GET_ALL_SETTINGS,
 	CMD_MIC_PRE_BUS,
 	CMD_SETTINGS_PUSH,
+	toHex,
+	bytesToHex,
+	formatRgbColor,
+	modelDistance,
 } from './types.js'
+
+const logger = createModuleLogger('SettingsParser')
 
 /* ---------------------------------------------------------
  *  TYPES
  * --------------------------------------------------------*/
 
-export interface ParsedSetting {
+export type ParsedSetting = {
 	cmd_id: number
 	id: number
 	busCh?: number // Optional: only present for commands with busCh (0x04, 0x12, 0x14)
 	valueBytes: number[]
 }
 
-export interface StActionOption {
+export type StActionOption = {
 	id?: string
 	label: string
 	type: string
@@ -29,7 +36,7 @@ export interface StActionOption {
 	choices?: Array<{ id: number; label: string }>
 }
 
-export interface StAction {
+export type StAction = {
 	cmd_id: number
 	id: number
 	name: string
@@ -37,9 +44,11 @@ export interface StAction {
 	busCh?: number // Fixed channel value for actions that don't have a channel option
 }
 
-export interface StModelJson {
+export type StModelJson = {
 	model: string
-	actions: StAction[]
+	sectioned?: boolean
+	refreshAfterCommand?: boolean
+	cmdSchema: StAction[]
 }
 
 /* ---------------------------------------------------------
@@ -51,8 +60,12 @@ function getModelConfig(model: string): { sectioned: boolean; rgbIds: Set<number
 	let sectioned = false
 
 	try {
-		const schemaPath = path.resolve(`./devices/Model${model}.json`)
-		const json = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'))
+		// Use centralized cache instead of reading from disk
+		const json = getDeviceSchema(model)
+		if (!json) {
+			// If we can't load the schema, return defaults
+			return { sectioned, rgbIds }
+		}
 
 		// Read sectioned property (default to false if not specified)
 		sectioned = json.sectioned ?? false
@@ -80,13 +93,6 @@ function getModelConfig(model: string): { sectioned: boolean; rgbIds: Set<number
 	}
 
 	return { sectioned, rgbIds }
-}
-
-function modelDistance(a: string, b: string): number {
-	const na = parseInt(a.replace(/\D/g, ''), 10)
-	const nb = parseInt(b.replace(/\D/g, ''), 10)
-	if (Number.isNaN(na) || Number.isNaN(nb)) return Infinity
-	return Math.abs(na - nb)
 }
 
 /* ---------------------------------------------------------
@@ -275,15 +281,12 @@ export function formatParsedSetting(setting: ParsedSetting, actions: StAction[])
 		}
 	}
 
-	const cmdHex = `0x${setting.cmd_id.toString(16).padStart(2, '0')}`
-	const idHex = `0x${setting.id.toString(16).padStart(2, '0')}`
-	const valHex = `0x${setting.valueBytes.map((b) => b.toString(16).padStart(2, '0')).join('')}`
+	const cmdHex = toHex(setting.cmd_id)
+	const idHex = toHex(setting.id)
+	const valHex = bytesToHex(setting.valueBytes)
 	const valDec =
 		setting.valueBytes.length === 3
-			? `#${setting.valueBytes
-					.map((b) => b.toString(16).padStart(2, '0'))
-					.join('')
-					.toUpperCase()}`
+			? formatRgbColor(setting.valueBytes[0], setting.valueBytes[1], setting.valueBytes[2])
 			: setting.valueBytes.length === 1
 				? setting.valueBytes[0]
 				: setting.valueBytes.join(',')
@@ -328,8 +331,64 @@ export function formatParsedSetting(setting: ParsedSetting, actions: StAction[])
 }
 
 /* ---------------------------------------------------------
- *  PARSER DISPATCH
+ *  PARSER DISPATCH WITH AUTO-DETECTION
  * --------------------------------------------------------*/
+
+/**
+ * Parses getAllSettings response with automatic format detection.
+ *
+ * Strategy:
+ * 1. If model has explicit "sectioned" property, use that
+ * 2. Otherwise, try FLAT parser first (it's simpler)
+ * 3. If FLAT returns 0 settings, try SECTIONED parser
+ * 4. Use whichever parser returns more settings
+ *
+ * @returns {settings: ParsedSetting[], detectedSectioned: boolean | null}
+ */
+export function parseGetAllSettingsWithDetection(
+	model: string,
+	buf: Buffer,
+): { settings: ParsedSetting[]; detectedSectioned: boolean | null } {
+	const schema = getDeviceSchema(model)
+	const declaredSectioned = schema?.sectioned
+
+	// If explicitly declared in JSON, use that
+	if (declaredSectioned !== undefined) {
+		const settings = declaredSectioned
+			? parseGetAllSettings_sectioned(buf, model)
+			: parseGetAllSettings_flat(buf, model)
+		return { settings, detectedSectioned: null } // null = used declared value
+	}
+
+	// No declaration - try both parsers and pick the best one
+	let flatSettings: ParsedSetting[] = []
+	let sectionedSettings: ParsedSetting[] = []
+
+	try {
+		flatSettings = parseGetAllSettings_flat(buf, model)
+	} catch (e) {
+		logger.debug(`Flat parser failed: ${e}`)
+	}
+
+	try {
+		sectionedSettings = parseGetAllSettings_sectioned(buf, model)
+	} catch (e) {
+		logger.debug(`Sectioned parser failed: ${e}`)
+	}
+
+	// Pick the parser that returned more settings
+	if (sectionedSettings.length > flatSettings.length) {
+		logger.info(`Auto-detected SECTIONED format (sectioned=${sectionedSettings.length} vs flat=${flatSettings.length})`)
+		return { settings: sectionedSettings, detectedSectioned: true }
+	} else if (flatSettings.length > 0) {
+		logger.info(`Auto-detected FLAT format (flat=${flatSettings.length} vs sectioned=${sectionedSettings.length})`)
+		return { settings: flatSettings, detectedSectioned: false }
+	} else {
+		// Both parsers returned 0 settings
+		logger.warn(`Warning: Both parsers returned 0 settings for model ${model}`)
+		return { settings: [], detectedSectioned: null }
+	}
+}
 
 export function parseGetAllSettingsForModel(model: string, buf: Buffer): ParsedSetting[] {
 	const { sectioned } = getModelConfig(model)
@@ -354,9 +413,7 @@ function valueBytesToOption(valueBytes: number[]): StActionOption {
 			id: 'value',
 			label: 'Color',
 			type: 'colorpicker',
-			default: `#${r.toString(16).padStart(2, '0')}${g
-				.toString(16)
-				.padStart(2, '0')}${b.toString(16).padStart(2, '0')}`,
+			default: formatRgbColor(r, g, b),
 		}
 	}
 
@@ -374,9 +431,9 @@ export function updateModelJsonFromSettings(
 ): StModelJson {
 	const out = structuredClone(modelJson)
 
-	// Ensure actions array exists
-	if (!out.actions) {
-		out.actions = []
+	// Ensure cmdSchema array exists
+	if (!out.cmdSchema) {
+		out.cmdSchema = []
 	}
 
 	// Sort other models by numeric distance to current model
@@ -384,20 +441,20 @@ export function updateModelJsonFromSettings(
 		.filter((m) => m.model !== modelJson.model) // exclude self
 		.sort((a, b) => modelDistance(modelJson.model, a.model) - modelDistance(modelJson.model, b.model))
 
-	console.log(`Updating model: ${modelJson.model}`)
-	console.log(`Candidates for inference: ${candidates.map((c) => c.model)}`)
+	logger.info(`Updating model: ${modelJson.model}`)
+	logger.debug(`Candidates for inference: ${candidates.map((c) => c.model).join(', ')}`)
 
 	for (const { cmd_id, id, valueBytes } of parsed) {
-		let action = out.actions.find((a) => a.cmd_id === cmd_id && a.id === id)
+		let action = out.cmdSchema.find((a) => a.cmd_id === cmd_id && a.id === id)
 
 		if (!action) {
 			// Try candidates in order of proximity
 			for (const c of candidates) {
-				const match = c.actions?.find((a) => a.cmd_id === cmd_id && a.id === id)
+				const match = c.cmdSchema?.find((a) => a.cmd_id === cmd_id && a.id === id)
 				if (match) {
 					action = structuredClone(match)
 					action.name = `${match.name} (inferred from Model ${c.model})`
-					console.log(`Inferred setting 0x${id.toString(16)} from Model ${c.model}`)
+					logger.info(`Inferred setting ${toHex(id)} from Model ${c.model}`)
 					break
 				}
 			}
@@ -407,18 +464,18 @@ export function updateModelJsonFromSettings(
 			action = {
 				cmd_id,
 				id,
-				name: `Unknown Setting 0x${id.toString(16).toUpperCase()}`,
+				name: `Unknown Setting ${toHex(id).toUpperCase()}`,
 				options: [valueBytesToOption(valueBytes)],
 			}
-			console.log(`Could not infer setting 0x${id.toString(16)}`)
+			logger.warn(`Could not infer setting ${toHex(id)}`)
 		} else {
 			const opt = action.options?.[0]
 			if (opt) opt.default = valueBytesToOption(valueBytes).default
 		}
 
 		// Avoid duplicates
-		const exists = out.actions.some((a) => a.cmd_id === action.cmd_id && a.id === action.id)
-		if (!exists) out.actions.push(action)
+		const exists = out.cmdSchema.some((a) => a.cmd_id === action.cmd_id && a.id === action.id)
+		if (!exists) out.cmdSchema.push(action)
 	}
 
 	return out
@@ -430,8 +487,30 @@ export function updateModelJsonFromSettings(
 
 export function saveModelJsonPretty(filePath: string, jsonObj: StModelJson): void {
 	try {
+		// Ensure proper key ordering: model, sectioned (if present), refreshAfterCommand, cmdSchema
+		const orderedObj: any = { model: jsonObj.model }
+
+		// Add sectioned key if present (right after model)
+		if ('sectioned' in jsonObj) {
+			orderedObj.sectioned = jsonObj.sectioned
+		}
+
+		// Add other keys in order
+		if ('refreshAfterCommand' in jsonObj) {
+			orderedObj.refreshAfterCommand = jsonObj.refreshAfterCommand
+		}
+		if ('cmdSchema' in jsonObj) {
+			orderedObj.cmdSchema = jsonObj.cmdSchema
+		}
+		// Copy any other keys that might exist
+		for (const key of Object.keys(jsonObj)) {
+			if (!(key in orderedObj)) {
+				orderedObj[key] = (jsonObj as any)[key]
+			}
+		}
+
 		// Custom formatter: keep choice objects compact on one line
-		let json = JSON.stringify(jsonObj, null, 2)
+		let json = JSON.stringify(orderedObj, null, 2)
 
 		// Replace expanded choice objects with compact single-line format
 		// Matches: {\n            "id": X,\n            "label": "Y"\n          }
@@ -440,7 +519,7 @@ export function saveModelJsonPretty(filePath: string, jsonObj: StModelJson): voi
 
 		fs.writeFileSync(filePath, json + '\n', 'utf8')
 	} catch (e) {
-		console.log('File Write Error:', e)
+		logger.error(`File Write Error: ${e}`)
 	}
 }
 
@@ -449,31 +528,26 @@ export function saveModelJsonPretty(filePath: string, jsonObj: StModelJson): voi
  * --------------------------------------------------------*/
 
 /**
- * Loads the actions array for a given model from the devices folder.
- * Returns an empty array if the file is missing or unparseable.
+ * Loads the actions array for a given model from the centralized cache.
+ * Returns an empty array if the model is not found.
+ * @deprecated - This function is no longer needed. Use getDeviceSchema() from config.ts instead.
  */
-export function loadActionsForModel(devicesFolder: string, model: string): StAction[] {
-	try {
-		const filePath = path.join(devicesFolder, `Model${model}.json`)
-		const json: any = JSON.parse(fs.readFileSync(filePath, 'utf8'))
-		return json?.cmdSchema ?? []
-	} catch {
-		return []
-	}
+export function loadActionsForModel(_devicesFolder: string, model: string): StAction[] {
+	const schema = getDeviceSchema(model)
+	return schema?.cmdSchema ?? []
 }
 
+/**
+ * Loads the model configuration from the centralized cache.
+ * @deprecated - This function is no longer needed. Use getDeviceSchema() from config.ts instead.
+ */
 export function loadModelConfig(
-	devicesFolder: string,
+	_devicesFolder: string,
 	model: string,
 ): { actions: StAction[]; refreshAfterCommand: boolean } {
-	try {
-		const filePath = path.join(devicesFolder, `Model${model}.json`)
-		const json: any = JSON.parse(fs.readFileSync(filePath, 'utf8'))
-		return {
-			actions: json?.cmdSchema ?? [],
-			refreshAfterCommand: json?.refreshAfterCommand ?? true, // Default to true if not specified
-		}
-	} catch {
-		return { actions: [], refreshAfterCommand: true }
+	const schema = getDeviceSchema(model)
+	return {
+		actions: schema?.cmdSchema ?? [],
+		refreshAfterCommand: schema?.refreshAfterCommand ?? true, // Default to true if not specified
 	}
 }

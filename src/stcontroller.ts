@@ -6,12 +6,15 @@ import {
 	CMD_BUS_SET,
 	CMD_DEV_SPEC,
 	CMD_GET_ALL_SETTINGS,
+	CMD_GET_FIRMWARE,
 	CMD_GLOBAL_MIC_KILL,
 	CMD_MIC_PRE_BUS,
 	CMD_RESET_DEVICE,
 	CMD_SETTINGS_PUSH,
 	getCommandName,
 	makeSettingId,
+	toHex,
+	bytesToHex,
 	type DeviceInfo,
 } from './types.js'
 import {
@@ -172,14 +175,14 @@ export class StController {
 		)
 
 		// Debug: Log the raw response
-		console.log('Raw response buffer:', response.toString('hex'))
-		console.log('Response length:', response.length)
+		logger.debug(`Raw response buffer: ${response.toString('hex')}`)
+		logger.debug(`Response length: ${response.length}`)
 
 		// Parse and store in deviceState
 		const parsed = parseGetAllSettingsForModel(this.model, response)
-		console.log('Parsed settings count:', parsed.length)
+		logger.debug(`Parsed settings count: ${parsed.length}`)
 		if (parsed.length > 0) {
-			console.log('First few settings:', parsed.slice(0, 3))
+			logger.debug(`First few settings: ${JSON.stringify(parsed.slice(0, 3))}`)
 		}
 
 		const stateMap = new Map<string, number>()
@@ -194,7 +197,9 @@ export class StController {
 		}
 		this.deviceState.set(deviceIp, stateMap) // Return buffer for caller to parse if needed
 		return response
-	} /** Return a snapshot of the current device state for a given IP (for feedbacks). */
+	}
+
+	/** Return a snapshot of the current device state for a given IP (for feedbacks). */
 	public getDeviceState(deviceIp: string): Map<string, number> {
 		return this.deviceState.get(deviceIp) ?? new Map()
 	}
@@ -238,6 +243,55 @@ export class StController {
 	}
 
 	/**
+	 * Requests device firmware version via Studio-T protocol (CMD_GET_FIRMWARE).
+	 * Returns the firmware version string (e.g., "3.01", "2.2", "1.05").
+	 */
+	public async requestFirmwareVersion(deviceIp: string): Promise<string> {
+		logger.info(`Requesting firmware version from ${deviceIp}`)
+		const response = await this.sendAwaitAck(
+			this.model,
+			CMD_GET_FIRMWARE,
+			undefined,
+			undefined,
+			undefined,
+			deviceIp,
+			false,
+			0x001b, // Firmware request message type
+		)
+
+		// Response structure: [header] 0x5a 0x80 [firmware_data] CRC
+		// Firmware data starts at byte 26 (24-byte header + 0x5a + 0x80)
+		const dataStart = 26
+
+		if (response.length < dataStart + 3) {
+			logger.warn(`Firmware response too short: ${response.length} bytes`)
+			return 'Unknown'
+		}
+
+		// Firmware format: [unknown_byte, major, minor]
+		const major = response[dataStart + 1]
+		const minor = response[dataStart + 2]
+
+		// Format as major.minor with no special padding rules
+		// Examples: 3.1→"3.01", 2.2→"2.2", 5.4→"5.04", 1.5→"1.05"
+		// Pattern: if minor < 10 and minor != 2, pad to 2 digits
+		// Actually simpler: always pad single digits EXCEPT 2
+		let minorStr: string
+		if (minor === 2) {
+			minorStr = '2' // Special case: 2.2 not 2.02
+		} else if (minor < 10) {
+			minorStr = minor.toString().padStart(2, '0') // 1→"01", 5→"05"
+		} else {
+			minorStr = minor.toString() // 10+→"10", "20", etc
+		}
+
+		const firmware = `${major}.${minorStr}`
+
+		logger.info(`Firmware version: ${firmware}`)
+		return firmware
+	}
+
+	/**
 	 * Ensure we've joined the multicast group on the interface that routes to destIp.
 	 * Option B behavior: join ONLY the interface used to reach the device.
 	 */
@@ -274,6 +328,7 @@ export class StController {
 		value: unknown,
 		destIp: string,
 		addLen = true,
+		msgType = 0x0020, // Default to standard command message type
 	): Promise<Buffer> {
 		const timeoutMs = 2000
 
@@ -294,8 +349,7 @@ export class StController {
 		const crc = StController.crc8DvbS2(payloadBody)
 		const payloadWithCrc = Buffer.from([...payloadBody, crc])
 
-		const totalLen = 24 + payloadWithCrc.length
-		const header = await StController.buildHeader(totalLen, destIp)
+		const header = await StController.buildHeader(destIp, msgType)
 		const packet = Buffer.concat([header, payloadWithCrc])
 
 		// Human-readable info log for the outgoing command
@@ -332,9 +386,9 @@ export class StController {
 			const valueNum = valueBytes.length === 1 ? valueBytes[0] : undefined
 			const choiceLabel = choices && valueNum !== undefined ? choices.find((c) => c.id === valueNum)?.label : undefined
 
-			const cmdHex = `0x${cmdId.toString(16).padStart(2, '0')}`
-			const idHex = `0x${settingId.toString(16).padStart(2, '0')}`
-			const valHex = `0x${valueBytes.map((b) => b.toString(16).padStart(2, '0')).join('')}`
+			const cmdHex = toHex(cmdId)
+			const idHex = toHex(settingId)
+			const valHex = bytesToHex(valueBytes)
 			const valDec = valueBytes.length === 1 ? valueBytes[0] : valueBytes.join(',')
 
 			const prefix = `cmd:${cmdHex} id:${idHex} val:${valHex}`
@@ -453,14 +507,14 @@ export class StController {
 	 *   [-1]     CRC-8/DVB-S2
 	 */
 	private logStPayload(srcIp: string, cmdId: number, msg: Buffer, stPayload: Buffer, isResponse = true): void {
-		const cmdName = `cmd_0x${cmdId.toString(16).padStart(2, '0')}`
+		const cmdName = `cmd_${toHex(cmdId)}`
 		const data = stPayload.subarray(2, stPayload.length - 1) // strip magic+cmdId header and CRC
 
 		// Show complete payload structure: [0x5a] [cmdId|0x80] [data bytes...] [crc]
 		const magic = stPayload[0]
 		const respCmdId = stPayload[1]
 		const crc = stPayload[stPayload.length - 1]
-		const fullStructure = `[magic:0x${magic.toString(16).padStart(2, '0')} cmd:0x${respCmdId.toString(16).padStart(2, '0')} data:${data.toString('hex')} crc:0x${crc.toString(16).padStart(2, '0')}]`
+		const fullStructure = `[magic:${toHex(magic)} cmd:${toHex(respCmdId)} data:${data.toString('hex')} crc:${toHex(crc)}]`
 
 		// Determine direction prefix
 		const direction = isResponse ? 'RX' : 'SNIFF'
@@ -536,7 +590,7 @@ export class StController {
 			if (data[0] === 0x00) {
 				return 'ACK ok'
 			} else {
-				return `ERROR 0x${data[0].toString(16).padStart(2, '0')}`
+				return `ERROR ${toHex(data[0])}`
 			}
 		}
 
@@ -547,28 +601,20 @@ export class StController {
 			//   2. Echo: [busCh] [settingId] [value...]  (confirming what was applied)
 			case CMD_DEV_SPEC: {
 				if (data.length === 1) {
-					return data[0] === 0x00 ? 'ACK ok' : `ACK err=0x${data[0].toString(16).padStart(2, '0')}`
+					return data[0] === 0x00 ? 'ACK ok' : `ACK err=${toHex(data[0])}`
 				}
 				if (data.length >= 3) {
 					const busCh = data[0]
 					const settingId = data[1]
 					const valueBytes = data.subarray(2)
 					const action = this.actions.find((a) => a.cmd_id === cmdId && a.id === settingId)
-					const settingName = action?.name ?? `setting=0x${settingId.toString(16).padStart(2, '0')}`
+					const settingName = action?.name ?? `setting=${toHex(settingId)}`
 					const choices = action?.options?.[0]?.choices
 					const valueNum = valueBytes.length === 1 ? valueBytes[0] : undefined
 					const choiceLabel =
 						choices && valueNum !== undefined ? choices.find((c) => c.id === valueNum)?.label : undefined
-					const valueStr = choiceLabel
-						? `${choiceLabel} (0x${valueNum!.toString(16).padStart(2, '0')})`
-						: `0x${Array.from(valueBytes)
-								.map((b) => b.toString(16).padStart(2, '0'))
-								.join('')}`
-					const rawTag = `[0x${cmdId.toString(16).padStart(2, '0')}/0x${settingId.toString(16).padStart(2, '0')}]=0x${Array.from(
-						valueBytes,
-					)
-						.map((b) => b.toString(16).padStart(2, '0'))
-						.join('')}`
+					const valueStr = choiceLabel ? `${choiceLabel} (${toHex(valueNum!)})` : bytesToHex(Array.from(valueBytes))
+					const rawTag = `[${toHex(cmdId)}/${toHex(settingId)}]=${bytesToHex(Array.from(valueBytes))}`
 					return `echo ch=${busCh} | ${settingName}: ${valueStr} ${rawTag}`
 				}
 				return `raw: ${data.toString('hex')}`
@@ -582,7 +628,7 @@ export class StController {
 					const settingId = data[1]
 					const valueBytes = data.subarray(2)
 					const action = this.actions.find((a) => a.cmd_id === cmdId && a.id === settingId)
-					const settingName = action?.name ?? `setting=0x${settingId.toString(16).padStart(2, '0')}`
+					const settingName = action?.name ?? `setting=${toHex(settingId)}`
 					const valueNum = valueBytes.length === 1 ? valueBytes[0] : undefined
 					const choices = action?.options?.find((o) => o.id === 'value')?.choices
 					const choiceLabel =
@@ -600,7 +646,7 @@ export class StController {
 				const busCh = data[0]
 				const settingId = data[1]
 				const value = data.subarray(2)
-				return `ch=${busCh} setting=0x${settingId.toString(16).padStart(2, '0')} value=${value.toString('hex')}`
+				return `ch=${busCh} setting=${toHex(settingId)} value=${value.toString('hex')}`
 			}
 
 			default:
@@ -656,11 +702,15 @@ export class StController {
 		})
 	}
 
-	private static async buildHeader(totalLen: number, destIp: string): Promise<Buffer> {
+	private static async buildHeader(destIp: string, msgType = 0x0020): Promise<Buffer> {
 		const mac = await StController.getMacForDestination(destIp)
 
+		// Message type is 2 bytes (big-endian): e.g., 0x0020, 0x001b, 0x001e
+		const msgTypeMsb = (msgType >> 8) & 0xff
+		const msgTypeLsb = msgType & 0xff
+
 		return Buffer.concat([
-			Buffer.from([0xff, 0xff, 0x00, totalLen & 0xff, 0x07, 0xe1, 0x00, 0x00, ...mac, 0x00, 0x00]),
+			Buffer.from([0xff, 0xff, msgTypeMsb, msgTypeLsb, 0x07, 0xe1, 0x00, 0x00, ...mac, 0x00, 0x00]),
 			Buffer.from('Studio-T', 'utf8'),
 		])
 	}

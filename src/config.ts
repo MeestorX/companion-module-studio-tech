@@ -5,34 +5,120 @@ import { Regex, type SomeCompanionConfigField, type JsonObject, createModuleLogg
 const logger = createModuleLogger('Config')
 import type { DeviceInfo } from './types.js'
 
-export interface ModuleConfig extends JsonObject {
+export type ModuleConfig = JsonObject & {
 	host: string
 	activeModel: string
 	/** IP of a discovered Dante device, or '' when the user chooses Manual */
 	discoveredHost: string
 }
 
-// Adjust this path if your folder layout differs
-const devicesFolder = path.join(import.meta.dirname, '../devices')
+// ============================================================================
+// CENTRALIZED DEVICE SCHEMA CACHE
+// ============================================================================
+// All device JSON files are loaded once into memory here. Other modules should
+// use getDevicesFolder(), getDeviceSchemas(), and getDeviceSchema() instead of
+// reading files directly. Call reloadDeviceSchemas() after writing to a file.
+// ============================================================================
 
-function loadAvailableModels(): string[] {
+/**
+ * Determines the correct devices folder path with fallback support.
+ * Checks primary path first, then fallback, then throws error if neither exists.
+ */
+function resolveDevicesFolder(): string {
+	const primaryPath = path.join(import.meta.dirname, '../devices')
+	const fallbackPath = path.join(import.meta.dirname, './devices')
+
+	// Check primary path
+	if (fs.existsSync(primaryPath)) {
+		logger.debug(`Using devices folder: ${primaryPath}`)
+		return primaryPath
+	}
+
+	// Check fallback path
+	if (fs.existsSync(fallbackPath)) {
+		logger.warn(`Primary devices folder not found, using fallback: ${fallbackPath}`)
+		return fallbackPath
+	}
+
+	// Neither path exists - fatal error
+	const errorMsg = `Devices folder not found!\nTried:\n  - ${primaryPath}\n  - ${fallbackPath}\nModule cannot continue without device schemas.`
+	logger.error(errorMsg)
+	throw new Error(errorMsg)
+}
+
+// Resolve the devices folder path (with existence check and fallback)
+const devicesFolder = resolveDevicesFolder()
+
+// In-memory cache of all device schemas, keyed by model number
+let deviceSchemasCache: Record<string, any> | null = null
+
+/**
+ * Returns the absolute path to the devices folder.
+ * Use this instead of redefining the path in every file.
+ */
+export function getDevicesFolder(): string {
+	return devicesFolder
+}
+
+/**
+ * Loads all device JSON files from the devices folder into memory.
+ * This should only be called once at initialization, or after a file is written.
+ */
+function loadDeviceSchemas(): Record<string, any> {
+	const schemas: Record<string, any> = {}
 	try {
 		const files = fs.readdirSync(devicesFolder).filter((f) => f.endsWith('.json'))
-		const models: string[] = []
 
 		for (const f of files) {
 			const fullPath = path.join(devicesFolder, f)
-			const j = JSON.parse(fs.readFileSync(fullPath, 'utf8'))
-			if (j?.model) {
-				models.push(String(j.model))
+			const json = JSON.parse(fs.readFileSync(fullPath, 'utf8'))
+			if (json?.model) {
+				schemas[String(json.model)] = json
 			}
 		}
 
-		return models.sort()
-	} catch (_e) {
-		logger.error(`Failed to load device models: ${_e}`)
-		return []
+		logger.debug(`Loaded ${Object.keys(schemas).length} device schemas into cache`)
+	} catch (e) {
+		logger.error(`Failed to load device schemas: ${e}`)
 	}
+	return schemas
+}
+
+/**
+ * Returns all device schemas from the cache.
+ * Initializes the cache on first call.
+ */
+export function getDeviceSchemas(): Record<string, any> {
+	if (!deviceSchemasCache) {
+		deviceSchemasCache = loadDeviceSchemas()
+	}
+	return deviceSchemasCache
+}
+
+/**
+ * Returns a specific device schema by model number.
+ * Returns undefined if the model doesn't exist.
+ */
+export function getDeviceSchema(model: string): any {
+	const schemas = getDeviceSchemas()
+	return schemas[model]
+}
+
+/**
+ * Reloads all device schemas from disk.
+ * Call this after writing to a device JSON file.
+ */
+export function reloadDeviceSchemas(): void {
+	logger.info('Reloading device schemas from disk...')
+	deviceSchemasCache = loadDeviceSchemas()
+}
+
+/**
+ * Returns a list of available model numbers, sorted.
+ */
+function loadAvailableModels(): string[] {
+	const schemas = getDeviceSchemas()
+	return Object.keys(schemas).sort()
 }
 
 export function GetConfigFields(discoveredDevices: DeviceInfo[] = []): SomeCompanionConfigField[] {
@@ -111,11 +197,11 @@ export function resolveHost(config: ModuleConfig): string {
 export function resolveModel(config: ModuleConfig, discoveredDevices: DeviceInfo[]): string {
 	if (config.discoveredHost) {
 		const device = discoveredDevices.find((d) => d.ip === config.discoveredHost)
-		console.log(`resolveModel: discoveredHost="${config.discoveredHost}", found device:`, device)
+		logger.debug(`resolveModel: discoveredHost="${config.discoveredHost}", found device: ${device?.model ?? 'none'}`)
 		if (device?.model) {
 			return device.model
 		}
 	}
-	console.log(`resolveModel: falling back to activeModel="${config.activeModel}"`)
+	logger.debug(`resolveModel: falling back to activeModel="${config.activeModel}"`)
 	return config.activeModel
 }

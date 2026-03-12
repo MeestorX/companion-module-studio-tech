@@ -20,8 +20,8 @@ export const DANTE_MSG_INFO_RESPONSE = 0x0170
  *   0x06  2 bytes   Padding
  *   0x08  8 bytes   EUI-64 (source MAC with ff:fe inserted mid)
  *   0x10  8 bytes   "Audinate" ASCII identifier
- *   0x18  2 bytes   Dante firmware version (major, minor)
- *   0x20  14 bytes  Device name, null-padded ASCII
+ *   0x18  2 bytes   Dante module firmware version (major, minor)
+ *   0x20  31 bytes  Device name, null-padded ASCII (max 31 chars per Dante spec)
  *   0x2e  uint16BE  Product ID
  *   0x4c  64 bytes  Manufacturer string, null-padded ASCII
  *   0xcc  64 bytes  Model string, null-padded ASCII
@@ -87,7 +87,7 @@ export function getFirstLocalMac(): Buffer {
  *   0x10  8 bytes   "Audinate" identifier (used to verify this is a real response)
  *   0x18  1 byte    Dante FW major
  *   0x19  1 byte    Dante FW minor
- *   0x20  14 bytes  Device name (Dante label, user-configurable), null-padded ASCII
+ *   0x20  31 bytes  Device name (Dante label), null-padded ASCII (max 31 chars)
  *   0x2e  uint16BE  Product ID
  *   0x4c  64 bytes  Manufacturer, null-padded ASCII
  *   0xcc  64 bytes  Model string, null-padded ASCII
@@ -111,10 +111,10 @@ export function parseDanteInfoResponse(msg: Buffer, srcIp: string): DeviceInfo |
 	const macBytes = [eui64[0], eui64[1], eui64[2], eui64[5], eui64[6], eui64[7]]
 	const mac = macBytes.map((b) => b.toString(16).padStart(2, '0')).join(':')
 
-	const name = readStr(0x20, 14) // Dante device label (user-configurable)
+	const name = readStr(0x20, 31) // Dante device label (can be up to 31 chars per Dante spec)
 	const manufacturer = readStr(0x4c, 64) // e.g. "Studio Technologies, Inc."
 	const modelRaw = readStr(0xcc, 64)
-	const firmware = `${msg[0x18]}.${msg[0x19]}`
+	const danteFirmware = `${msg[0x18]}.${msg[0x19]}`
 
 	if (!modelRaw) return null
 
@@ -125,7 +125,15 @@ export function parseDanteInfoResponse(msg: Buffer, srcIp: string): DeviceInfo |
 		.trim()
 		.split(/\s+/)[0]
 
-	return { ip: srcIp, name, manufacturer, model, mac, firmware }
+	return {
+		ip: srcIp,
+		name,
+		manufacturer,
+		model,
+		modelName: modelRaw, // Full model description
+		mac,
+		danteFirmware,
+	}
 }
 
 /**
