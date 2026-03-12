@@ -1,5 +1,6 @@
 {
 	"model": "5304",
+	"sectioned": true,
 	"refreshAfterCommand": true,
 	"cmdSchema": [
 		{

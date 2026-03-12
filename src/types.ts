@@ -34,6 +34,38 @@ export const CMD_GLOBAL_MIC_KILL = 0x10 // Emergency mic kill (all channels)
 export const CMD_MIC_PRE_BUS = 0x12 // Mic/preamp settings per bus (gain, phantom, etc)
 export const CMD_CHANNEL = 0x14 // Channel-specific controls (reserved for future use)
 
+// ─── Command Name Helper ──────────────────────────────────────────────────────
+export function getCommandName(cmdId: number): string {
+	switch (cmdId) {
+		case CMD_BUS_GET:
+			return 'Get Bus Setting'
+		case CMD_BUS_SET:
+			return 'Set Bus Setting'
+		case CMD_HEADPHONE:
+			return 'Headphone Control'
+		case CMD_BUTTON_MODE:
+			return 'Button Mode'
+		case CMD_SYSTEM:
+			return 'System Command'
+		case CMD_GET_ALL_SETTINGS:
+			return 'Request All Settings'
+		case CMD_SETTINGS_PUSH:
+			return 'Settings Push'
+		case CMD_MIC_PRE_BUS:
+			return 'Mic/Pre Bus'
+		case CMD_DEV_SPEC:
+			return 'Device Setting'
+		case CMD_CHANNEL:
+			return 'Channel Setting'
+		case CMD_RESET_DEVICE:
+			return 'Reset Device'
+		case CMD_GLOBAL_MIC_KILL:
+			return 'Global Mic Kill'
+		default:
+			return `cmd_0x${cmdId.toString(16).padStart(2, '0')}`
+	}
+}
+
 // ─── ID Generation Helper ──────────────────────────────────────────────────────
 /**
  * Creates a consistent ID for actions, feedbacks, and state keys.

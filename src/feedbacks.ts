@@ -17,8 +17,21 @@ function getLabelForValue(
 	const schema = schemas[model]
 	if (!schema || !Array.isArray(schema.actions)) return value
 
-	// Find the setting in the schema
-	const setting = schema.actions.find((s: any) => s.cmd_id === cmdId && s.id === settingId)
+	// Try exact match first
+	let setting = schema.actions.find((s: any) => s.cmd_id === cmdId && s.id === settingId)
+
+	// If no exact match, try to find base action with idAdd
+	if (!setting) {
+		setting = schema.actions.find((s: any) => {
+			if (s.cmd_id !== cmdId) return false
+			const idAddOption = s.options?.find((opt: any) => opt.id === 'idAdd')
+			if (!idAddOption?.choices) return false
+			// Check if settingId matches base + any idAdd offset
+			const offset = settingId - s.id
+			return idAddOption.choices.some((c: any) => c.id === offset)
+		})
+	}
+
 	if (!setting || !Array.isArray(setting.options)) return value
 
 	// Find the 'value' option which contains the choices

@@ -10,6 +10,7 @@ import {
 	CMD_MIC_PRE_BUS,
 	CMD_RESET_DEVICE,
 	CMD_SETTINGS_PUSH,
+	getCommandName,
 	makeSettingId,
 	type DeviceInfo,
 } from './types.js'
@@ -170,22 +171,30 @@ export class StController {
 			false,
 		)
 
+		// Debug: Log the raw response
+		console.log('Raw response buffer:', response.toString('hex'))
+		console.log('Response length:', response.length)
+
 		// Parse and store in deviceState
 		const parsed = parseGetAllSettingsForModel(this.model, response)
+		console.log('Parsed settings count:', parsed.length)
+		if (parsed.length > 0) {
+			console.log('First few settings:', parsed.slice(0, 3))
+		}
+
 		const stateMap = new Map<string, number>()
 		for (const setting of parsed) {
 			const key = makeSettingId(this.model, setting.cmd_id, setting.id, setting.busCh)
-			stateMap.set(key, setting.valueBytes[0] ?? 0)
-
-			// Log each setting at debug level
-			const formatted = formatParsedSetting(setting, this.actions)
-			logger.debug(`  ${formatted}`)
+			// For RGB colors (3 bytes), pack into single number: (R << 16) | (G << 8) | B
+			const value =
+				setting.valueBytes.length === 3
+					? (setting.valueBytes[0] << 16) | (setting.valueBytes[1] << 8) | setting.valueBytes[2]
+					: (setting.valueBytes[0] ?? 0)
+			stateMap.set(key, value)
 		}
 		this.deviceState.set(deviceIp, stateMap) // Return buffer for caller to parse if needed
 		return response
-	}
-
-	/** Return a snapshot of the current device state for a given IP (for feedbacks). */
+	} /** Return a snapshot of the current device state for a given IP (for feedbacks). */
 	public getDeviceState(deviceIp: string): Map<string, number> {
 		return this.deviceState.get(deviceIp) ?? new Map()
 	}
@@ -289,15 +298,8 @@ export class StController {
 		const header = await StController.buildHeader(totalLen, destIp)
 		const packet = Buffer.concat([header, payloadWithCrc])
 
-		// Log the Studio-T payload structure (similar to RX logging)
-		const magic = payloadWithCrc[0]
-		const cmd = payloadWithCrc[1]
-		const dataBytes = payloadWithCrc.subarray(2, -1) // Everything between cmd and CRC
-		const crcByte = payloadWithCrc[payloadWithCrc.length - 1]
-		const payloadStructure = `[magic:0x${magic.toString(16).padStart(2, '0')} cmd:0x${cmd.toString(16).padStart(2, '0')} data:${dataBytes.toString('hex')} crc:0x${crcByte.toString(16).padStart(2, '0')}]`
-
 		// Human-readable info log for the outgoing command
-		const cmdName = `cmd_0x${cmdId.toString(16).padStart(2, '0')}`
+		const cmdName = getCommandName(cmdId)
 		if (settingId !== undefined && value !== undefined) {
 			// Try exact match first
 			let action = this.actions.find((a) => a.cmd_id === cmdId && a.id === settingId)
@@ -338,9 +340,9 @@ export class StController {
 			const prefix = `cmd:${cmdHex} id:${idHex} val:${valHex}`
 			const suffix = choiceLabel ? `${settingName}: ${choiceLabel} (${valDec})` : `${settingName}: ${valDec}`
 
-			logger.info(`TX ${destIp} | ${payloadStructure} | ${prefix} | ${suffix}`)
+			logger.info(`TX ${destIp} | ${prefix} | ${suffix}`)
 		} else {
-			logger.info(`TX ${destIp} | ${payloadStructure} | ${cmdName}`)
+			logger.info(`TX ${destIp} | ${cmdName}`)
 		}
 		logger.debug(`Sending packet to ${destIp}: ${packet.toString('hex')}`)
 
@@ -482,7 +484,11 @@ export class StController {
 
 				for (const s of settings) {
 					const stateKey = makeSettingId(this.model, s.cmd_id, s.id, s.busCh)
-					const newValue = s.valueBytes[0] ?? 0
+					// For RGB colors (3 bytes), pack into single number: (R << 16) | (G << 8) | B
+					const newValue =
+						s.valueBytes.length === 3
+							? (s.valueBytes[0] << 16) | (s.valueBytes[1] << 8) | s.valueBytes[2]
+							: (s.valueBytes[0] ?? 0)
 					const prevValue = prevState.get(stateKey)
 					const changed = prevValue !== undefined && prevValue !== newValue
 

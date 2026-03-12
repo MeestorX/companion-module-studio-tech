@@ -1,5 +1,6 @@
 {
 	"model": "374A",
+	"sectioned": true,
 	"refreshAfterCommand": false,
 	"cmdSchema": [
 		{

@@ -46,8 +46,40 @@ export interface StModelJson {
  *  FORMAT HELPERS
  * --------------------------------------------------------*/
 
-function isSectionedModel(model: string): boolean {
-	return ['374A', '391', '5304'].includes(model)
+function getModelConfig(model: string): { sectioned: boolean; rgbIds: Set<number> } {
+	const rgbIds = new Set<number>()
+	let sectioned = false
+
+	try {
+		const schemaPath = path.resolve(`./devices/Model${model}.json`)
+		const json = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'))
+
+		// Read sectioned property (default to false if not specified)
+		sectioned = json.sectioned ?? false
+
+		// Build RGB IDs set
+		for (const action of json.cmdSchema || []) {
+			const hasColorpicker = action.options?.some((opt: StActionOption) => opt.type === 'colorpicker')
+			if (hasColorpicker) {
+				// Add the base ID
+				rgbIds.add(action.id)
+
+				// If this action has idAdd choices, add all the offset IDs too
+				const idAddOption = action.options?.find((opt: StActionOption) => opt.id === 'idAdd')
+				if (idAddOption?.choices) {
+					for (const choice of idAddOption.choices) {
+						if (typeof choice.id === 'number') {
+							rgbIds.add(action.id + choice.id)
+						}
+					}
+				}
+			}
+		}
+	} catch (_err) {
+		// If we can't load the schema, return defaults
+	}
+
+	return { sectioned, rgbIds }
 }
 
 function modelDistance(a: string, b: string): number {
@@ -77,7 +109,7 @@ function extractStPayloadIndex(buf: Buffer): number {
  *  FLAT PARSER
  * --------------------------------------------------------*/
 
-function parseFlatIdValSequence(block: Buffer): ParsedSetting[] {
+function parseFlatIdValSequence(block: Buffer, rgbIds: Set<number> = new Set()): ParsedSetting[] {
 	let p = 0
 	const out: ParsedSetting[] = []
 
@@ -85,18 +117,15 @@ function parseFlatIdValSequence(block: Buffer): ParsedSetting[] {
 		const id = block[p]
 		if (p + 1 >= block.length) break
 
-		// RGB case
-		if (p + 3 < block.length) {
-			const nextId = block[p + 4]
-			if (nextId >= 0x00 && nextId <= 0x40) {
-				out.push({
-					cmd_id: CMD_DEV_SPEC,
-					id,
-					valueBytes: [block[p + 1], block[p + 2], block[p + 3]],
-				})
-				p += 4
-				continue
-			}
+		// RGB case - check if this ID is a known colorpicker
+		if (rgbIds.has(id) && p + 3 < block.length) {
+			out.push({
+				cmd_id: CMD_DEV_SPEC,
+				id,
+				valueBytes: [block[p + 1], block[p + 2], block[p + 3]],
+			})
+			p += 4
+			continue
 		}
 
 		out.push({ cmd_id: CMD_DEV_SPEC, id, valueBytes: [block[p + 1]] })
@@ -106,7 +135,7 @@ function parseFlatIdValSequence(block: Buffer): ParsedSetting[] {
 	return out
 }
 
-export function parseGetAllSettings_flat(buf: Buffer): ParsedSetting[] {
+export function parseGetAllSettings_flat(buf: Buffer, model: string): ParsedSetting[] {
 	const idx = extractStPayloadIndex(buf)
 	const cmdId = buf[idx + 1] & 0x7f
 	if (cmdId !== CMD_GET_ALL_SETTINGS && cmdId !== CMD_SETTINGS_PUSH) {
@@ -118,14 +147,15 @@ export function parseGetAllSettings_flat(buf: Buffer): ParsedSetting[] {
 	const end = start + blockLen
 	if (end > buf.length) throw new Error('Invalid block length')
 
-	return parseFlatIdValSequence(buf.subarray(start, end))
+	const { rgbIds } = getModelConfig(model)
+	return parseFlatIdValSequence(buf.subarray(start, end), rgbIds)
 }
 
 /* ---------------------------------------------------------
  *  SECTIONED PARSER
  * --------------------------------------------------------*/
 
-export function parseGetAllSettings_sectioned(buf: Buffer): ParsedSetting[] {
+export function parseGetAllSettings_sectioned(buf: Buffer, model: string): ParsedSetting[] {
 	const idx = extractStPayloadIndex(buf)
 	const cmdId = buf[idx + 1] & 0x7f
 	if (cmdId !== CMD_GET_ALL_SETTINGS && cmdId !== CMD_SETTINGS_PUSH) {
@@ -136,6 +166,9 @@ export function parseGetAllSettings_sectioned(buf: Buffer): ParsedSetting[] {
 	let p = cmdId === CMD_GET_ALL_SETTINGS ? idx + 3 : idx + 2
 	const end = buf.length - 1
 	const out: ParsedSetting[] = []
+
+	// Get RGB IDs for this model
+	const { rgbIds } = getModelConfig(model)
 
 	// Command IDs that include a busCh byte in their section structure
 	const commandsWithBusCh = [CMD_BUS_SET, CMD_MIC_PRE_BUS, CMD_CHANNEL]
@@ -168,16 +201,27 @@ export function parseGetAllSettings_sectioned(buf: Buffer): ParsedSetting[] {
 		const qEnd = q + dataLen
 
 		while (q + 1 < qEnd) {
+			const id = buf[q]
+			let valueBytes: number[]
+
+			// Check if this ID is an RGB colorpicker (needs 3 bytes)
+			if (rgbIds.has(id) && q + 3 < qEnd) {
+				valueBytes = [buf[q + 1], buf[q + 2], buf[q + 3]]
+				q += 4
+			} else {
+				valueBytes = [buf[q + 1]]
+				q += 2
+			}
+
 			const setting: ParsedSetting = {
 				cmd_id: sectionCmdId,
-				id: buf[q],
-				valueBytes: [buf[q + 1]],
+				id,
+				valueBytes,
 			}
 			if (busCh !== undefined) {
 				setting.busCh = busCh
 			}
 			out.push(setting)
-			q += 2
 		}
 
 		p = sectionEnd
@@ -201,7 +245,8 @@ export function parseSettingsResponse(model: string, buf: Buffer): ParsedSetting
 	if (cmdId !== CMD_GET_ALL_SETTINGS && cmdId !== CMD_SETTINGS_PUSH) {
 		throw new Error(`Not a settings block (cmdId=0x${cmdId.toString(16)})`)
 	}
-	return isSectionedModel(model) ? parseGetAllSettings_sectioned(buf) : parseGetAllSettings_flat(buf)
+	const { sectioned } = getModelConfig(model)
+	return sectioned ? parseGetAllSettings_sectioned(buf, model) : parseGetAllSettings_flat(buf, model)
 }
 
 /**
@@ -219,10 +264,11 @@ export function formatParsedSetting(setting: ParsedSetting, actions: StAction[])
 		const baseAction = actions.find((a) => {
 			if (a.cmd_id !== setting.cmd_id) return false
 			// Check if this action has an idAdd option (indicating channel selection)
-			const hasIdAdd = a.options?.some((opt) => opt.id === 'idAdd')
-			if (!hasIdAdd) return false
-			// Check if the setting.id could be this action's base id + offset
-			return setting.id >= a.id && setting.id < a.id + 10 // reasonable offset range
+			const idAddOption = a.options?.find((opt) => opt.id === 'idAdd')
+			if (!idAddOption?.choices) return false
+			// Check if the setting.id offset matches one of the idAdd choice IDs
+			const channelOffset = setting.id - a.id
+			return idAddOption.choices.some((c) => c.id === channelOffset)
 		})
 		if (baseAction) {
 			action = baseAction
@@ -232,7 +278,15 @@ export function formatParsedSetting(setting: ParsedSetting, actions: StAction[])
 	const cmdHex = `0x${setting.cmd_id.toString(16).padStart(2, '0')}`
 	const idHex = `0x${setting.id.toString(16).padStart(2, '0')}`
 	const valHex = `0x${setting.valueBytes.map((b) => b.toString(16).padStart(2, '0')).join('')}`
-	const valDec = setting.valueBytes.length === 1 ? setting.valueBytes[0] : setting.valueBytes.join(',')
+	const valDec =
+		setting.valueBytes.length === 3
+			? `#${setting.valueBytes
+					.map((b) => b.toString(16).padStart(2, '0'))
+					.join('')
+					.toUpperCase()}`
+			: setting.valueBytes.length === 1
+				? setting.valueBytes[0]
+				: setting.valueBytes.join(',')
 
 	// Build the prefix: cmd:0x12 ch:0 id:0x01 val:0x14 (ch only for commands with busCh)
 	const busChStr = setting.busCh !== undefined ? ` ch:${setting.busCh}` : ''
@@ -246,12 +300,15 @@ export function formatParsedSetting(setting: ParsedSetting, actions: StAction[])
 		if (setting.busCh !== undefined) {
 			name = `${name} Ch${setting.busCh + 1}`
 		}
-		// Otherwise, if this action has idAdd and the setting id is offset from base, include channel info
+		// Otherwise, if this action has idAdd, include the idAdd label
 		else {
-			const hasIdAdd = action.options?.some((opt) => opt.id === 'idAdd')
-			if (hasIdAdd && setting.id !== action.id) {
+			const idAddOption = action.options?.find((opt) => opt.id === 'idAdd')
+			if (idAddOption?.choices) {
 				const channelOffset = setting.id - action.id
-				name = `${name} Ch${channelOffset + 1}`
+				const idAddChoice = idAddOption.choices.find((c) => c.id === channelOffset)
+				if (idAddChoice) {
+					name = `${name} ${idAddChoice.label}`
+				}
 			}
 		}
 
@@ -275,7 +332,8 @@ export function formatParsedSetting(setting: ParsedSetting, actions: StAction[])
  * --------------------------------------------------------*/
 
 export function parseGetAllSettingsForModel(model: string, buf: Buffer): ParsedSetting[] {
-	return isSectionedModel(model) ? parseGetAllSettings_sectioned(buf) : parseGetAllSettings_flat(buf)
+	const { sectioned } = getModelConfig(model)
+	return sectioned ? parseGetAllSettings_sectioned(buf, model) : parseGetAllSettings_flat(buf, model)
 }
 
 /* ✅ backward-compatible export */
@@ -315,6 +373,11 @@ export function updateModelJsonFromSettings(
 	allModels: Record<string, StModelJson>,
 ): StModelJson {
 	const out = structuredClone(modelJson)
+
+	// Ensure actions array exists
+	if (!out.actions) {
+		out.actions = []
+	}
 
 	// Sort other models by numeric distance to current model
 	const candidates = Object.values(allModels)

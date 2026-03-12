@@ -3,15 +3,14 @@ import { buildActions, loadUiSchemas } from './build-commands.js'
 import { resolveModel } from './config.js'
 import path from 'path'
 
-/* // For GET ALL SETTINGS ACTION
+// For GET ALL SETTINGS ACTION
 import fs from 'fs'
 import {
 	parseGetAllSettingsForModel,
 	saveModelJsonPretty,
 	updateModelJsonFromSettings,
-*/
-
-import { StModelJson } from './settingsParser.js'
+	StModelJson,
+} from './settingsParser.js'
 
 export function UpdateActions(self: ModuleInstance): void {
 	const devicesFolder = path.join(import.meta.dirname, '../devices')
@@ -36,7 +35,7 @@ export function UpdateActions(self: ModuleInstance): void {
 	// ---------------------------------------------
 	// ✅ GLOBAL: GET ALL SETTINGS (AUTO JSON UPDATE)
 	// ---------------------------------------------
-	/*
+
 	wiredActions['global_getAllSettings'] = {
 		name: 'GLOBAL: Get All Settings (Auto-Update JSON)',
 		options: [],
@@ -61,7 +60,7 @@ export function UpdateActions(self: ModuleInstance): void {
 			console.log(`Model ${model} JSON auto-updated from getAllSettings`)
 		},
 	}
-	*/
+
 	// ---------------------------------------------
 	// ✅ BUILD PER-SETTING ACTIONS (FILTERED BY ACTIVE MODEL)
 	// ---------------------------------------------

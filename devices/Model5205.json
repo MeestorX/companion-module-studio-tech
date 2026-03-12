@@ -1,7 +1,7 @@
 {
 	"model": "5205",
 	"refreshAfterCommand": true,
-	"actions": [
+	"cmdSchema": [
 		{
 			"cmd_id": 18,
 			"id": 1,
