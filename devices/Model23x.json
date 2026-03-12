@@ -1,5 +1,6 @@
 {
 	"model": "23x",
+	"refreshAfterCommand": true,
 	"actions": [
 		{
 			"cmd_id": 18,

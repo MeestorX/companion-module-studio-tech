@@ -1,6 +1,7 @@
 {
 	"model": "391",
-	"actions": [
+	"refreshAfterCommand": true,
+	"cmdSchema": [
 		{
 			"cmd_id": 9,
 			"id": 25,
@@ -36,19 +37,6 @@
 					],
 					"default": 1,
 					"tooltip": "Set the Active Mode"
-				}
-			]
-		},
-		{
-			"cmd_id": 13,
-			"id": 1,
-			"name": "Unknown Setting 0x01",
-			"options": [
-				{
-					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 1
 				}
 			]
 		},
@@ -659,32 +647,6 @@
 					],
 					"default": 4,
 					"tooltip": "Set Line Out Mode for Mode 2"
-				}
-			]
-		},
-		{
-			"cmd_id": 13,
-			"id": 50,
-			"name": "Unknown Setting 0x32",
-			"options": [
-				{
-					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 0
-				}
-			]
-		},
-		{
-			"cmd_id": 13,
-			"id": 255,
-			"name": "Unknown Setting 0xFF",
-			"options": [
-				{
-					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 255
 				}
 			]
 		}

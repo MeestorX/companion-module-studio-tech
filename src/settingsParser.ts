@@ -1,5 +1,13 @@
 import fs from 'fs'
 import path from 'path'
+import {
+	CMD_BUS_SET,
+	CMD_CHANNEL,
+	CMD_DEV_SPEC,
+	CMD_GET_ALL_SETTINGS,
+	CMD_MIC_PRE_BUS,
+	CMD_SETTINGS_PUSH,
+} from './types.js'
 
 /* ---------------------------------------------------------
  *  TYPES
@@ -8,6 +16,7 @@ import path from 'path'
 export interface ParsedSetting {
 	cmd_id: number
 	id: number
+	busCh?: number // Optional: only present for commands with busCh (0x04, 0x12, 0x14)
 	valueBytes: number[]
 }
 
@@ -38,7 +47,7 @@ export interface StModelJson {
  * --------------------------------------------------------*/
 
 function isSectionedModel(model: string): boolean {
-	return ['374A', '391'].includes(model)
+	return ['374A', '391', '5304'].includes(model)
 }
 
 function modelDistance(a: string, b: string): number {
@@ -81,7 +90,7 @@ function parseFlatIdValSequence(block: Buffer): ParsedSetting[] {
 			const nextId = block[p + 4]
 			if (nextId >= 0x00 && nextId <= 0x40) {
 				out.push({
-					cmd_id: 0x0d,
+					cmd_id: CMD_DEV_SPEC,
 					id,
 					valueBytes: [block[p + 1], block[p + 2], block[p + 3]],
 				})
@@ -90,7 +99,7 @@ function parseFlatIdValSequence(block: Buffer): ParsedSetting[] {
 			}
 		}
 
-		out.push({ cmd_id: 0x0d, id, valueBytes: [block[p + 1]] })
+		out.push({ cmd_id: CMD_DEV_SPEC, id, valueBytes: [block[p + 1]] })
 		p += 2
 	}
 
@@ -100,7 +109,9 @@ function parseFlatIdValSequence(block: Buffer): ParsedSetting[] {
 export function parseGetAllSettings_flat(buf: Buffer): ParsedSetting[] {
 	const idx = extractStPayloadIndex(buf)
 	const cmdId = buf[idx + 1] & 0x7f
-	if (cmdId !== 0x0a && cmdId !== 0x0b) throw new Error('Not a getAllSettings reply')
+	if (cmdId !== CMD_GET_ALL_SETTINGS && cmdId !== CMD_SETTINGS_PUSH) {
+		throw new Error('Not a getAllSettings reply')
+	}
 
 	const blockLen = buf[idx + 2]
 	const start = idx + 3
@@ -117,30 +128,55 @@ export function parseGetAllSettings_flat(buf: Buffer): ParsedSetting[] {
 export function parseGetAllSettings_sectioned(buf: Buffer): ParsedSetting[] {
 	const idx = extractStPayloadIndex(buf)
 	const cmdId = buf[idx + 1] & 0x7f
-	if (cmdId !== 0x0a && cmdId !== 0x0b) throw new Error('Not a getAllSettings reply')
+	if (cmdId !== CMD_GET_ALL_SETTINGS && cmdId !== CMD_SETTINGS_PUSH) {
+		throw new Error('Not a getAllSettings reply')
+	}
 
-	// 0x0a has a total-length byte at idx+2 before the sections; 0x0b does not.
-	let p = cmdId === 0x0a ? idx + 3 : idx + 2
+	// CMD_GET_ALL_SETTINGS has a total-length byte at idx+2 before the sections; CMD_SETTINGS_PUSH does not.
+	let p = cmdId === CMD_GET_ALL_SETTINGS ? idx + 3 : idx + 2
 	const end = buf.length - 1
 	const out: ParsedSetting[] = []
+
+	// Command IDs that include a busCh byte in their section structure
+	const commandsWithBusCh = [CMD_BUS_SET, CMD_MIC_PRE_BUS, CMD_CHANNEL]
 
 	while (p + 2 < end) {
 		const cmdLen = buf[p]
 		const sectionCmdId = buf[p + 1]
-		const dataLen = buf[p + 2]
 
 		const sectionEnd = p + 1 + cmdLen
 		if (sectionEnd > end) break
 
-		let q = p + 3
+		// Check if this command includes a busCh byte
+		const hasBusCh = commandsWithBusCh.includes(sectionCmdId)
+
+		let busCh: number | undefined
+		let dataLen: number
+		let q: number
+
+		if (hasBusCh) {
+			// Structure: [cmdLen] [cmdId] [busCh] [dataLen] [id:val pairs]
+			busCh = buf[p + 2]
+			dataLen = buf[p + 3]
+			q = p + 4 // Data starts after cmdLen, cmdId, busCh, dataLen
+		} else {
+			// Structure: [cmdLen] [cmdId] [dataLen] [id:val pairs]
+			dataLen = buf[p + 2]
+			q = p + 3 // Data starts after cmdLen, cmdId, dataLen
+		}
+
 		const qEnd = q + dataLen
 
 		while (q + 1 < qEnd) {
-			out.push({
+			const setting: ParsedSetting = {
 				cmd_id: sectionCmdId,
 				id: buf[q],
 				valueBytes: [buf[q + 1]],
-			})
+			}
+			if (busCh !== undefined) {
+				setting.busCh = busCh
+			}
+			out.push(setting)
 			q += 2
 		}
 
@@ -162,7 +198,7 @@ export function parseGetAllSettings_sectioned(buf: Buffer): ParsedSetting[] {
 export function parseSettingsResponse(model: string, buf: Buffer): ParsedSetting[] {
 	const idx = extractStPayloadIndex(buf)
 	const cmdId = buf[idx + 1] & 0x7f
-	if (cmdId !== 0x0a && cmdId !== 0x0b) {
+	if (cmdId !== CMD_GET_ALL_SETTINGS && cmdId !== CMD_SETTINGS_PUSH) {
 		throw new Error(`Not a settings block (cmdId=0x${cmdId.toString(16)})`)
 	}
 	return isSectionedModel(model) ? parseGetAllSettings_sectioned(buf) : parseGetAllSettings_flat(buf)
@@ -198,18 +234,25 @@ export function formatParsedSetting(setting: ParsedSetting, actions: StAction[])
 	const valHex = `0x${setting.valueBytes.map((b) => b.toString(16).padStart(2, '0')).join('')}`
 	const valDec = setting.valueBytes.length === 1 ? setting.valueBytes[0] : setting.valueBytes.join(',')
 
-	// Build the prefix: cmd:0x12 id:0x01 val:0x14
-	const prefix = `cmd:${cmdHex} id:${idHex} val:${valHex}`
+	// Build the prefix: cmd:0x12 ch:0 id:0x01 val:0x14 (ch only for commands with busCh)
+	const busChStr = setting.busCh !== undefined ? ` ch:${setting.busCh}` : ''
+	const prefix = `cmd:${cmdHex}${busChStr} id:${idHex} val:${valHex}`
 
 	// If we have an action with a name and choice label, use it
 	if (action) {
 		let name = action.name
 
-		// If this action has idAdd and the setting id is offset from base, include channel info
-		const hasIdAdd = action.options?.some((opt) => opt.id === 'idAdd')
-		if (hasIdAdd && setting.id !== action.id) {
-			const channelOffset = setting.id - action.id
-			name = `${name} Ch${channelOffset + 1}`
+		// If setting has busCh, add channel info to name
+		if (setting.busCh !== undefined) {
+			name = `${name} Ch${setting.busCh + 1}`
+		}
+		// Otherwise, if this action has idAdd and the setting id is offset from base, include channel info
+		else {
+			const hasIdAdd = action.options?.some((opt) => opt.id === 'idAdd')
+			if (hasIdAdd && setting.id !== action.id) {
+				const channelOffset = setting.id - action.id
+				name = `${name} Ch${channelOffset + 1}`
+			}
 		}
 
 		// Look for the value option (not busCh or idAdd)
@@ -349,9 +392,25 @@ export function saveModelJsonPretty(filePath: string, jsonObj: StModelJson): voi
 export function loadActionsForModel(devicesFolder: string, model: string): StAction[] {
 	try {
 		const filePath = path.join(devicesFolder, `Model${model}.json`)
-		const json: StModelJson = JSON.parse(fs.readFileSync(filePath, 'utf8'))
-		return json?.actions ?? []
+		const json: any = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+		return json?.cmdSchema ?? []
 	} catch {
 		return []
+	}
+}
+
+export function loadModelConfig(
+	devicesFolder: string,
+	model: string,
+): { actions: StAction[]; refreshAfterCommand: boolean } {
+	try {
+		const filePath = path.join(devicesFolder, `Model${model}.json`)
+		const json: any = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+		return {
+			actions: json?.cmdSchema ?? [],
+			refreshAfterCommand: json?.refreshAfterCommand ?? true, // Default to true if not specified
+		}
+	} catch {
+		return { actions: [], refreshAfterCommand: true }
 	}
 }

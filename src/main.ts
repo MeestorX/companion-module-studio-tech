@@ -12,7 +12,7 @@ import { UpgradeScripts } from './upgrades.js'
 import { UpdateActions } from './actions.js'
 import { UpdateFeedbacks } from './feedbacks.js'
 import { StController } from './stcontroller.js'
-import { loadActionsForModel } from './settingsParser.js'
+import { loadModelConfig } from './settingsParser.js'
 import type { DeviceInfo } from './types.js'
 
 const logger = createModuleLogger('ModuleInstance')
@@ -57,6 +57,11 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		const effectiveModel = resolveModel(this.config, this.discoveredDevices)
 		this.syncModel(effectiveModel)
 
+		// Wire feedback callback so stController can trigger feedback updates
+		this.stController.setFeedbackCallback((feedbackId: string) => {
+			this.checkFeedbacks(feedbackId)
+		})
+
 		// NOW update actions/feedbacks/variables after discovery and model resolution
 		this.updateActions()
 		this.updateFeedbacks()
@@ -85,8 +90,10 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		const effectiveModel = resolveModel(config, this.discoveredDevices)
 		this.syncModel(effectiveModel)
 
-		// Rebuild actions when config changes (model or device selection changed)
+		// Rebuild actions, feedbacks, and variables when config changes (model or device selection changed)
 		this.updateActions()
+		this.updateFeedbacks()
+		this.updateVariableDefinitions()
 
 		// If the host changed, request settings from the new device
 		const newHost = this.host
@@ -101,12 +108,12 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 
 	/** Loads the device JSON for the given model and pushes it to the controller. */
 	private syncModel(model: string): void {
-		const actions = loadActionsForModel(devicesFolder, model)
-		this.stController.setModel(model, actions)
+		const { actions, refreshAfterCommand } = loadModelConfig(devicesFolder, model)
+		this.stController.setModel(model, actions, refreshAfterCommand)
 		if (actions.length === 0) {
 			logger.warn(`No actions found for model "${model}" — settings decoding will use raw IDs`)
 		} else {
-			logger.debug(`Loaded ${actions.length} actions for model "${model}"`)
+			logger.debug(`Loaded ${actions.length} actions for model "${model}", refreshAfterCommand=${refreshAfterCommand}`)
 		}
 	}
 

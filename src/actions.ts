@@ -22,7 +22,7 @@ export function UpdateActions(self: ModuleInstance): void {
 	for (const [model, json] of Object.entries(schemasRaw)) {
 		schemas[model] = {
 			model: json.model,
-			actions: Array.isArray(json.actions) ? json.actions : [],
+			actions: Array.isArray(json.cmdSchema) ? json.cmdSchema : [],
 		}
 	}
 	const wiredActions: any = {}
@@ -72,8 +72,9 @@ export function UpdateActions(self: ModuleInstance): void {
 		// Only include actions for the currently active model
 		if (model !== activeModel) continue
 
-		const cmdId = Number(cmdIdStr)
-		const baseId = Number(idStr)
+		// Parse hex strings from actionId (e.g., "391_d_0" → cmdId=13, baseId=0)
+		const cmdId = parseInt(cmdIdStr, 16)
+		const baseId = parseInt(idStr, 16)
 
 		// Get the raw action schema to access fixed busCh value
 		const schema = schemas[model]

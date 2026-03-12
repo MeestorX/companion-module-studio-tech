@@ -1,6 +1,7 @@
 {
 	"model": "374A",
-	"actions": [
+	"refreshAfterCommand": false,
+	"cmdSchema": [
 		{
 			"cmd_id": 18,
 			"id": 1,

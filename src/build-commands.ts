@@ -10,8 +10,8 @@ import {
 	CompanionActionDefinitions,
 	CompanionActionDefinition,
 	CompanionFeedbackDefinitions,
-	CompanionBooleanFeedbackDefinition,
 } from '@companion-module/base'
+import { makeSettingId } from './types.js'
 
 const devicesFolder = path.join(import.meta.dirname, '../devices')
 
@@ -77,16 +77,16 @@ export function buildActions(dir = devicesFolder): CompanionActionDefinitions {
 	const actions: CompanionActionDefinitions = {}
 
 	for (const [model, schema] of Object.entries(schemas)) {
-		const actionDefs = schema.actions
-		if (!Array.isArray(actionDefs)) continue
+		const cmdSchema = schema.cmdSchema
+		if (!Array.isArray(cmdSchema)) continue
 
-		for (const a of actionDefs) {
-			const actionId = `${model}_${a.cmd_id}_${a.id}`
+		for (const a of cmdSchema) {
+			const actionId = makeSettingId(model, a.cmd_id, a.id)
 
 			const options = (a.options ?? []).map(buildOption)
 
 			const action: CompanionActionDefinition = {
-				name: `[Model${model}] Set ${a.name}`,
+				name: `[Model${model}] ${a.name}`,
 				options,
 				callback: async () => {
 					/* wired later in UpdateActions */
@@ -109,32 +109,39 @@ export function buildFeedbacks(dir = devicesFolder): CompanionFeedbackDefinition
 	const feedbacks: CompanionFeedbackDefinitions = {}
 
 	for (const [model, schema] of Object.entries(schemas)) {
-		const feedbackDefs = schema.feedbacks
-		if (!Array.isArray(feedbackDefs)) continue
+		const cmdSchema = schema.cmdSchema
+		if (!Array.isArray(cmdSchema)) continue
 
-		for (const f of feedbackDefs) {
-			const feedbackId = `${model}_${f.cmd_id}_${f.id}_state`
+		for (const setting of cmdSchema) {
+			const baseFeedbackId = makeSettingId(model, setting.cmd_id, setting.id)
 
-			const feedback: CompanionBooleanFeedbackDefinition = {
-				type: 'boolean',
-				name: `[Model${model}] ${f.label}`,
-				defaultStyle: {
-					bgcolor: 0xff0000,
-					color: 0xffffff,
-				},
+			// Build options
+			const allOptions = (setting.options ?? []).map(buildOption)
 
-				// ✅ MUST BE ARRAY (per Companion type)
-				options: [buildOption(f)],
+			// Filter out 'value' option for value feedback (keep only busCh/idAdd)
+			const valueOptions = allOptions.filter((opt: any) => opt.id !== 'value')
 
-				callback: (feedbackInstance: any, state: any) => {
-					const optionId = f.id
-					const expected = feedbackInstance.options[optionId]
-					const current = state?.[model]?.[optionId]
-					return current === expected
+			// Add a checkbox option to return label instead of value
+			valueOptions.push({
+				type: 'checkbox',
+				id: 'showLabel',
+				label: 'Show Label',
+				default: false,
+				tooltip: 'Return the label text instead of the numeric value',
+			})
+
+			// Value feedback for all settings (appears in Variables list)
+			const valueFeedback: any = {
+				type: 'value',
+				name: `[Model${model}] ${setting.name}`,
+				options: valueOptions,
+				callback: () => {
+					/* wired later in UpdateFeedbacks */
+					return 0
 				},
 			}
 
-			feedbacks[feedbackId] = feedback
+			feedbacks[baseFeedbackId] = valueFeedback
 		}
 	}
 

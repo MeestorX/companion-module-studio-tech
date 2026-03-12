@@ -1,4 +1,5 @@
 {
 	"model": "204",
-	"actions": []
+	"refreshAfterCommand": true,
+	"cmdSchema": []
 }
