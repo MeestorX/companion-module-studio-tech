@@ -38,28 +38,10 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		}
 		this.updateStatus(InstanceStatus.Ok)
 
-		// Run discovery to populate the device list FIRST
-		this.discoveredDevices = await this.stController.discoverDevices()
-		if (this.discoveredDevices.length === 0) {
-			logger.warn('No devices discovered')
-		} else {
-			logger.info(`Discovered ${this.discoveredDevices.length} device(s):`)
-			for (const d of this.discoveredDevices) {
-				logger.info(`  - Model ${d.model} ${d.manufacturer ?? ''} @ ${d.ip}`)
-			}
-
-			// Request device firmware from each discovered device via Studio-T protocol
-			for (const device of this.discoveredDevices) {
-				try {
-					const firmware = await this.stController.requestFirmwareVersion(device.ip)
-					device.firmwareMain = firmware
-					logger.info(`  - ${device.ip}: Firmware ${firmware}, Dante ${device.danteFirmware}`)
-				} catch (e) {
-					logger.warn(`  - ${device.ip}: Failed to get firmware: ${e}`)
-					device.firmwareMain = 'Unknown'
-				}
-			}
-		}
+		// Start discovery in the background - don't block init
+		this.runDiscovery().catch((e) => {
+			logger.error(`Discovery failed: ${e}`)
+		})
 
 		// Load device schema and sync to controller for message decoding
 		// Use resolveModel to auto-detect model from discovered device if selected
@@ -92,6 +74,53 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 				logger.warn(`Failed to get all settings from ${targetHost}: ${e}`)
 			}
 		}
+	}
+
+	/**
+	 * Run device discovery in the background.
+	 * Updates discoveredDevices and refreshes config options when complete.
+	 */
+	private async runDiscovery(): Promise<void> {
+		logger.info('Starting device discovery...')
+
+		// Run discovery to populate the device list
+		this.discoveredDevices = await this.stController.discoverDevices()
+
+		if (this.discoveredDevices.length === 0) {
+			logger.warn('No devices discovered')
+		} else {
+			logger.info(`Discovered ${this.discoveredDevices.length} device(s):`)
+			for (const d of this.discoveredDevices) {
+				logger.info(`  - Model ${d.model} ${d.manufacturer ?? ''} @ ${d.ip}`)
+			}
+
+			// Request device firmware from each discovered device via Studio-T protocol
+			for (const device of this.discoveredDevices) {
+				try {
+					const firmware = await this.stController.requestFirmwareVersion(device.ip)
+					device.firmwareMain = firmware
+					logger.info(`  - ${device.ip}: Firmware ${firmware}, Dante ${device.danteFirmware}`)
+				} catch (e) {
+					logger.warn(`  - ${device.ip}: Failed to get firmware: ${e}`)
+					device.firmwareMain = 'Unknown'
+				}
+			}
+		}
+
+		// After discovery completes, refresh actions/feedbacks/variables
+		// Note: discovered devices will be available in getConfigFields() next time config is opened
+
+		// Re-resolve model in case a discovered device is now available
+		const effectiveModel = resolveModel(this.config, this.discoveredDevices)
+		if (effectiveModel) {
+			this.syncModel(effectiveModel)
+		}
+
+		this.updateActions()
+		this.updateFeedbacks()
+		this.updateVariableValues()
+
+		logger.info('Device discovery complete')
 	}
 
 	// When module gets deleted

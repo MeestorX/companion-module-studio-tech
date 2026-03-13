@@ -190,7 +190,7 @@ export async function getLocalAddressForDestination(destIp: string): Promise<str
  */
 export async function discoverDevices(
 	txSocket: dgram.Socket,
-	onDeviceFound: (device: DeviceInfo) => void,
+	_onDeviceFound: (device: DeviceInfo) => void, // Invoked by StController.handleIncoming(), not here
 	ensureMembership: (destIp: string) => Promise<void>,
 	timeoutMs = 5000,
 ): Promise<DeviceInfo[]> {
@@ -202,13 +202,8 @@ export async function discoverDevices(
 	const queriedIps = new Set<string>()
 
 	return new Promise<DeviceInfo[]>((resolve) => {
-		// Wrap the callback to track found devices
-		const wrappedCallback = (device: DeviceInfo) => {
-			if (!found.has(device.ip)) {
-				found.set(device.ip, device)
-				onDeviceFound(device)
-			}
-		}
+		// Note: onDeviceFound callback is invoked by StController.handleIncoming()
+		// when it receives 0x0170 responses. We don't call it here to avoid duplicates.
 
 		// Open a short-lived socket just to receive the Dante periodic announces
 		const announceSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true })
@@ -268,6 +263,5 @@ export async function discoverDevices(
 		})
 
 		// Store callback for cleanup
-		;(announceSocket as any).wrappedCallback = wrappedCallback
 	})
 }
