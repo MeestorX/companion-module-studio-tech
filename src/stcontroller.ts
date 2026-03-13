@@ -45,6 +45,12 @@ export class StController {
 	>
 	private joinedInterfaces: Set<string> = new Set() // local IPs we've joined multicast on
 
+	/** Serializes outgoing commands so each waits for ACK before the next is sent */
+	private sendQueue: Promise<void> = Promise.resolve()
+
+	/** Tracks how many commands are queued/in-flight, to defer requestAllSettings */
+	private pendingCommandCount = 0
+
 	/** Resolves once txSocket is bound and ready to send */
 	private txReady: Promise<void>
 
@@ -256,7 +262,6 @@ export class StController {
 			undefined,
 			deviceIp,
 			false,
-			0x001b, // Firmware request message type
 		)
 
 		// Response structure: [header] 0x5a 0x80 [firmware_data] CRC
@@ -272,10 +277,6 @@ export class StController {
 		const major = response[dataStart + 1]
 		const minor = response[dataStart + 2]
 
-		// Format as major.minor with no special padding rules
-		// Examples: 3.1→"3.01", 2.2→"2.2", 5.4→"5.04", 1.5→"1.05"
-		// Pattern: if minor < 10 and minor != 2, pad to 2 digits
-		// Actually simpler: always pad single digits EXCEPT 2
 		let minorStr: string
 		if (minor === 2) {
 			minorStr = '2' // Special case: 2.2 not 2.02
@@ -328,7 +329,37 @@ export class StController {
 		value: unknown,
 		destIp: string,
 		addLen = true,
-		msgType = 0x0020, // Default to standard command message type
+	): Promise<Buffer> {
+		this.pendingCommandCount++
+		return new Promise<Buffer>((resolve, reject) => {
+			this.sendQueue = this.sendQueue.then(async () =>
+				this._sendAwaitAck(model, cmdId, busCh, settingId, value, destIp, addLen)
+					.then((buf) => {
+						this.pendingCommandCount--
+						// Only trigger requestAllSettings when the queue is fully drained
+						if (this.pendingCommandCount === 0 && this.refreshAfterCommand && settingId !== undefined) {
+							this.requestAllSettings(destIp).catch((err) => {
+								logger.warn(`Failed to refresh settings after command: ${err}`)
+							})
+						}
+						resolve(buf)
+					})
+					.catch((err) => {
+						this.pendingCommandCount--
+						reject(err instanceof Error ? err : new Error(String(err)))
+					}),
+			)
+		})
+	}
+
+	private async _sendAwaitAck(
+		model: string,
+		cmdId: number,
+		busCh: number | undefined,
+		settingId: number | undefined,
+		value: unknown,
+		destIp: string,
+		addLen = true,
 	): Promise<Buffer> {
 		const timeoutMs = 2000
 
@@ -349,7 +380,8 @@ export class StController {
 		const crc = StController.crc8DvbS2(payloadBody)
 		const payloadWithCrc = Buffer.from([...payloadBody, crc])
 
-		const header = await StController.buildHeader(destIp, msgType)
+		const totalLen = 24 + payloadWithCrc.length
+		const header = await StController.buildHeader(totalLen, destIp)
 		const packet = Buffer.concat([header, payloadWithCrc])
 
 		// Human-readable info log for the outgoing command
@@ -413,14 +445,6 @@ export class StController {
 			this.pendingAcks.set(key, {
 				resolve: (buf) => {
 					clearTimeout(timer)
-
-					// If device requires refresh after command, request all settings (non-blocking)
-					if (this.refreshAfterCommand && settingId !== undefined) {
-						this.requestAllSettings(destIp).catch((err) => {
-							logger.warn(`Failed to refresh settings after command: ${err}`)
-						})
-					}
-
 					resolve(buf)
 				},
 				reject: (err) => {
@@ -557,16 +581,20 @@ export class StController {
 							? (s.valueBytes[0] << 16) | (s.valueBytes[1] << 8) | s.valueBytes[2]
 							: (s.valueBytes[0] ?? 0)
 					const prevValue = prevState.get(stateKey)
-					const changed = prevValue !== undefined && prevValue !== newValue
+					const changed = prevValue === undefined || prevValue !== newValue
 
 					newState.set(stateKey, newValue)
 
 					const formatted = formatParsedSetting(s, this.actions)
 					if (changed) {
 						logger.info(`${direction} ${srcIp} | ${formatted}`)
-						// Trigger feedback update for this setting
+						// Trigger feedback update — use base key without busCh so it matches the feedback definition ID
 						if (this.feedbackCallback) {
-							this.feedbackCallback(stateKey)
+							const baseFeedbackKey = makeSettingId(this.model, s.cmd_id, s.id)
+							//logger.debug(`Triggering feedback update for key: ${baseFeedbackKey}`)
+							this.feedbackCallback(baseFeedbackKey)
+						} else {
+							logger.warn(`feedbackCallback not set — skipping feedback update for ${stateKey}`)
 						}
 					} else {
 						logger.debug(`${direction} ${srcIp} | ${formatted}`)
@@ -715,15 +743,11 @@ export class StController {
 		})
 	}
 
-	private static async buildHeader(destIp: string, msgType = 0x0020): Promise<Buffer> {
+	private static async buildHeader(totalLen: number, destIp: string): Promise<Buffer> {
 		const mac = await StController.getMacForDestination(destIp)
 
-		// Message type is 2 bytes (big-endian): e.g., 0x0020, 0x001b, 0x001e
-		const msgTypeMsb = (msgType >> 8) & 0xff
-		const msgTypeLsb = msgType & 0xff
-
 		return Buffer.concat([
-			Buffer.from([0xff, 0xff, msgTypeMsb, msgTypeLsb, 0x07, 0xe1, 0x00, 0x00, ...mac, 0x00, 0x00]),
+			Buffer.from([0xff, 0xff, 0x00, totalLen & 0xff, 0x07, 0xe1, 0x00, 0x00, ...mac, 0x00, 0x00]),
 			Buffer.from('Studio-T', 'utf8'),
 		])
 	}

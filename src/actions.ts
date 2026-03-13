@@ -84,7 +84,6 @@ export function UpdateActions(self: ModuleInstance): void {
 			...action,
 			callback: async (event: any) => {
 				const ip = self.host
-				// Use busCh from options if present, otherwise use fixed value from schema
 				const busCh = event.options['busCh'] !== undefined ? event.options['busCh'] : rawAction?.busCh
 				const value = event.options['value']
 				const idAdd = event.options['idAdd'] ?? 0

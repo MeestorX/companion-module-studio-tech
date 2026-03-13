@@ -38,6 +38,12 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		}
 		this.updateStatus(InstanceStatus.Ok)
 
+		// Wire feedback callback so stController can trigger feedback updates
+		this.stController.setFeedbackCallback((feedbackId: string) => {
+			//logger.debug(`checkFeedbacks called for: ${feedbackId}`)
+			this.checkFeedbacks(feedbackId)
+		})
+
 		// Start discovery in the background - don't block init
 		this.runDiscovery().catch((e) => {
 			logger.error(`Discovery failed: ${e}`)
@@ -54,26 +60,11 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 			logger.warn('No model available - skipping model sync')
 		}
 
-		// Wire feedback callback so stController can trigger feedback updates
-		this.stController.setFeedbackCallback((feedbackId: string) => {
-			this.checkFeedbacks(feedbackId)
-		})
-
 		// NOW update actions/feedbacks/variables after discovery and model resolution
 		this.updateActions()
 		this.updateFeedbacks()
 		this.updateVariableDefinitions()
 		this.updateVariableValues() // Set initial variable values from discovered device
-
-		// Fetch initial settings state from the configured device only if we have a valid model
-		const targetHost = this.host
-		if (targetHost && effectiveModel) {
-			try {
-				await this.stController.requestAllSettings(targetHost)
-			} catch (e) {
-				logger.warn(`Failed to get all settings from ${targetHost}: ${e}`)
-			}
-		}
 	}
 
 	/**
@@ -107,10 +98,7 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 			}
 		}
 
-		// After discovery completes, refresh actions/feedbacks/variables
-		// Note: discovered devices will be available in getConfigFields() next time config is opened
-
-		// Re-resolve model in case a discovered device is now available
+		// Re-resolve model now that devices are known
 		const effectiveModel = resolveModel(this.config, this.discoveredDevices)
 		if (effectiveModel) {
 			this.syncModel(effectiveModel)
@@ -121,6 +109,18 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		this.updateVariableValues()
 
 		logger.info('Device discovery complete')
+
+		// Fetch initial settings state now that model and devices are known
+		const targetHost = this.host
+		if (targetHost && effectiveModel) {
+			logger.info(`Fetching initial settings from ${targetHost}`)
+			try {
+				await this.stController.requestAllSettings(targetHost)
+				this.updateVariableValues()
+			} catch (e) {
+				logger.warn(`Failed to get all settings from ${targetHost}: ${e}`)
+			}
+		}
 	}
 
 	// When module gets deleted
@@ -174,9 +174,6 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		}
 	}
 
-	// Return config fields for web config — include discovered devices so the
-	// dropdown is populated. Called by Companion on first load and after
-	// setConfigSchemaVersion() triggers a refresh.
 	getConfigFields(): SomeCompanionConfigField[] {
 		return GetConfigFields(this.discoveredDevices)
 	}
