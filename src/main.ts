@@ -64,7 +64,13 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		// Load device schema and sync to controller for message decoding
 		// Use resolveModel to auto-detect model from discovered device if selected
 		const effectiveModel = resolveModel(this.config, this.discoveredDevices)
-		this.syncModel(effectiveModel)
+
+		// Only sync model if we have a valid model
+		if (effectiveModel) {
+			this.syncModel(effectiveModel)
+		} else {
+			logger.warn('No model available - skipping model sync')
+		}
 
 		// Wire feedback callback so stController can trigger feedback updates
 		this.stController.setFeedbackCallback((feedbackId: string) => {
@@ -77,9 +83,9 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		this.updateVariableDefinitions()
 		this.updateVariableValues() // Set initial variable values from discovered device
 
-		// Fetch initial settings state from the configured device only
+		// Fetch initial settings state from the configured device only if we have a valid model
 		const targetHost = this.host
-		if (targetHost) {
+		if (targetHost && effectiveModel) {
 			try {
 				await this.stController.requestAllSettings(targetHost)
 			} catch (e) {

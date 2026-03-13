@@ -1,9 +1,9 @@
 import fs from 'fs'
 import path from 'path'
 import { Regex, type SomeCompanionConfigField, type JsonObject, createModuleLogger } from '@companion-module/base'
+import type { DeviceInfo } from './types.js'
 
 const logger = createModuleLogger('Config')
-import type { DeviceInfo } from './types.js'
 
 export type ModuleConfig = JsonObject & {
 	host: string
@@ -193,6 +193,7 @@ export function resolveHost(config: ModuleConfig): string {
 /**
  * Returns the effective model — if a discovered device is selected, extracts
  * its model from the discoveredDevices list; otherwise uses activeModel.
+ * Returns empty string if no devices are discovered and using discoveredHost mode.
  */
 export function resolveModel(config: ModuleConfig, discoveredDevices: DeviceInfo[]): string {
 	if (config.discoveredHost) {
@@ -200,6 +201,11 @@ export function resolveModel(config: ModuleConfig, discoveredDevices: DeviceInfo
 		logger.debug(`resolveModel: discoveredHost="${config.discoveredHost}", found device: ${device?.model ?? 'none'}`)
 		if (device?.model) {
 			return device.model
+		}
+		// If using discoveredHost mode but no device found, don't fall back to activeModel
+		if (discoveredDevices.length === 0) {
+			logger.warn(`resolveModel: No devices discovered, cannot determine model`)
+			return ''
 		}
 	}
 	logger.debug(`resolveModel: falling back to activeModel="${config.activeModel}"`)
