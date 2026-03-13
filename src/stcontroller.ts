@@ -452,12 +452,25 @@ export class StController {
 		if (msgType === DANTE_MSG_INFO_RESPONSE && this.discoveryListeners.size > 0) {
 			const device = parseDanteInfoResponse(msg, srcIp)
 			if (device) {
-				for (const cb of this.discoveryListeners.values()) {
-					try {
-						cb(device)
-					} catch {
-						/* ignore */
+				logger.debug(
+					`Dante info response from ${srcIp}: ` +
+						`DeviceID="${device.name}", ` +
+						`Model="${device.model}", ` +
+						`ModelName="${device.modelName}", ` +
+						`Manufacturer="${device.manufacturer}"`,
+				)
+
+				// Only accept Studio Technologies devices (identified by DeviceID "Studio-T")
+				if (device.name === 'Studio-T') {
+					for (const cb of this.discoveryListeners.values()) {
+						try {
+							cb(device)
+						} catch {
+							/* ignore */
+						}
 					}
+				} else {
+					logger.debug(`Ignoring non-Studio Technologies device: DeviceID="${device.name}" @ ${srcIp}`)
 				}
 			}
 			return
