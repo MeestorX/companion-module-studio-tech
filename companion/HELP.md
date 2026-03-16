@@ -1,6 +1,6 @@
 ## Companion Module for Studio Technologies Dante Devices
 
-v0.4.2
+v0.4.3
 
 Supported Devices so far:
 
@@ -15,3 +15,4 @@ Model 5205
 Model 5304  
 Model 5364  
 Model 5365
+Model 5414

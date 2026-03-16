@@ -1,5 +1,118 @@
 {
 	"model": "5414",
+	"sectioned": true,
 	"refreshAfterCommand": true,
-	"cmdSchema": []
+	"cmdSchema": [
+		{
+			"cmd_id": 18,
+			"id": 1,
+			"name": "Mic Gain",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" }
+					],
+					"default": 0,
+					"tooltip": "Select the Mic Channel"
+				},
+				{
+					"id": "value",
+					"label": "Gain",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "0dB" },
+						{ "id": 10, "label": "10dB" },
+						{ "id": 19, "label": "19dB" },
+						{ "id": 22, "label": "22dB" },
+						{ "id": 25, "label": "25dB" },
+						{ "id": 28, "label": "28dB" },
+						{ "id": 31, "label": "31dB" },
+						{ "id": 34, "label": "34dB" },
+						{ "id": 37, "label": "37dB" },
+						{ "id": 40, "label": "40dB" },
+						{ "id": 43, "label": "43dB" },
+						{ "id": 46, "label": "46dB" },
+						{ "id": 49, "label": "49dB" },
+						{ "id": 52, "label": "52dB" },
+						{ "id": 55, "label": "55dB" },
+						{ "id": 58, "label": "58dB" },
+						{ "id": 61, "label": "61dB" },
+						{ "id": 64, "label": "64dB" },
+						{ "id": 67, "label": "67dB" },
+						{ "id": 70, "label": "70dB" }
+					],
+					"default": 0,
+					"tooltip": "Set the microphone preamplifier gain for the selected channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 18,
+			"id": 2,
+			"name": "Mic Phantom Power",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" }
+					],
+					"default": 0,
+					"tooltip": "Set the Mic Channel"
+				},
+				{
+					"id": "value",
+					"label": "Phantom (+48v)",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 48, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Set phantom power for the selected channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 18,
+			"id": 3,
+			"name": "HPF",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" }
+					],
+					"default": 0,
+					"tooltip": "Select the Mic Channel"
+				},
+				{
+					"id": "value",
+					"label": "HPF (75hz)",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 75, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Set the HPF On/Off for the selected channel"
+				}
+			]
+		}
+	]
 }
