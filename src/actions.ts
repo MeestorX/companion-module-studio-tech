@@ -25,46 +25,49 @@ export function UpdateActions(self: ModuleInstance): void {
 	// ✅ GLOBAL: GET ALL SETTINGS (AUTO JSON UPDATE)
 	// ---------------------------------------------
 
-	wiredActions['global_getAllSettings'] = {
-		name: 'GLOBAL: Get All Settings (Auto-Update JSON)',
-		options: [],
-		callback: async () => {
-			const model = activeModel
-			const ip = self.host
+	// Only wire the getAllSettings action if the device is authorized
+	if (self.stController.isDeviceAuthorized(self.host)) {
+		wiredActions['global_getAllSettings'] = {
+			name: 'GLOBAL: Get All Settings (Auto-Update JSON)',
+			options: [],
+			callback: async () => {
+				const model = activeModel
+				const ip = self.host
 
-			const buf = await self.stController.requestAllSettings(ip)
+				const buf = await self.stController.requestAllSettings(ip)
 
-			// Use centralized cache to get the schema
-			let modelJson = getDeviceSchema(model)
-			if (!modelJson) {
-				logger.error(`Model ${model} schema not found in cache`)
-				return
-			}
+				// Use centralized cache to get the schema
+				let modelJson = getDeviceSchema(model)
+				if (!modelJson) {
+					logger.error(`Model ${model} schema not found in cache`)
+					return
+				}
 
-			// Parse with auto-detection
-			const { settings: parsed, detectedSectioned } = parseGetAllSettingsWithDetection(model, buf)
-			logger.debug(`parsed reply: ${JSON.stringify(parsed)}`)
+				// Parse with auto-detection
+				const { settings: parsed, detectedSectioned } = parseGetAllSettingsWithDetection(model, buf)
+				logger.debug(`parsed reply: ${JSON.stringify(parsed)}`)
 
-			// If we auto-detected the format, add it to the JSON
-			if (detectedSectioned !== null) {
-				logger.info(`Auto-detected sectioned=${detectedSectioned}, adding to model JSON`)
-				modelJson = { ...modelJson, sectioned: detectedSectioned }
-			}
+				// If we auto-detected the format, add it to the JSON
+				if (detectedSectioned !== null) {
+					logger.info(`Auto-detected sectioned=${detectedSectioned}, adding to model JSON`)
+					modelJson = { ...modelJson, sectioned: detectedSectioned }
+				}
 
-			const updated = updateModelJsonFromSettings(modelJson, parsed, schemas)
-			logger.debug(`new Actions json: ${JSON.stringify(updated, null, 2)}`)
+				const updated = updateModelJsonFromSettings(modelJson, parsed, schemas)
+				logger.debug(`new Actions json: ${JSON.stringify(updated, null, 2)}`)
 
-			// Save the updated JSON to disk
-			const devicesFolder = getDevicesFolder()
-			const schemaPath = path.join(devicesFolder, `Model${model}.json`)
-			saveModelJsonPretty(schemaPath, updated)
+				// Save the updated JSON to disk
+				const devicesFolder = getDevicesFolder()
+				const schemaPath = path.join(devicesFolder, `Model${model}.json`)
+				saveModelJsonPretty(schemaPath, updated)
 
-			// Reload the cache after writing to file
-			reloadDeviceSchemas()
+				// Reload the cache after writing to file
+				reloadDeviceSchemas()
 
-			logger.info(`Model ${model} JSON auto-updated from getAllSettings`)
-		},
-	}
+				logger.info(`Model ${model} JSON auto-updated from getAllSettings`)
+			},
+		}
+	} // end isDeviceAuthorized
 
 	// ---------------------------------------------
 	// ✅ BUILD PER-SETTING ACTIONS (FILTERED BY ACTIVE MODEL)

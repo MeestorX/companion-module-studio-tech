@@ -16,34 +16,46 @@ export function UpdateVariableDefinitions(self: ModuleInstance): void {
 	})
 }
 
+const CLEARED_VARIABLES = {
+	model: '',
+	modelName: '',
+	manufacturer: '',
+	firmware: '',
+	danteFW: '',
+	mac: '',
+	ip: '',
+}
+
 /**
  * Update variable values from discovered device information.
- * Call this after device discovery or when device info changes.
+ * Only populates variables when the current host is authorized.
+ * Clears all variables if the device is not authorized or not found.
  */
 export function UpdateVariableValues(self: ModuleInstance): void {
-	// Find the device info for the current host
 	const currentHost = self.host
-	const device = self.devices.find((d) => d.ip === currentHost)
 
+	// Clear variables if no host configured or device is not authorized
+	if (!currentHost || !self.stController.isDeviceAuthorized(currentHost)) {
+		self.setVariableValues(CLEARED_VARIABLES)
+		return
+	}
+
+	const device = self.devices.find((d) => d.ip === currentHost)
 	if (device) {
 		self.setVariableValues({
-			model: device.model || 'Unknown',
+			model: device.model || '',
 			modelName: device.modelName || '',
 			manufacturer: device.manufacturer || '',
-			firmware: device.firmwareMain || 'Unknown',
-			danteFW: device.danteFirmware || 'Unknown',
+			firmware: device.firmwareMain || '',
+			danteFW: device.danteFirmware || '',
 			mac: device.mac || '',
-			ip: device.ip || currentHost,
+			ip: device.ip,
 		})
 	} else {
-		// No device info available - show minimal info
+		// Authorized but not in discovered list (manual IP that probed successfully)
+		// We know it's the right device but don't have full info yet
 		self.setVariableValues({
-			model: self.config.activeModel || 'Unknown',
-			modelName: '',
-			manufacturer: '',
-			firmware: 'Unknown',
-			danteFW: 'Unknown',
-			mac: '',
+			...CLEARED_VARIABLES,
 			ip: currentHost,
 		})
 	}

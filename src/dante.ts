@@ -137,6 +137,47 @@ export function parseDanteInfoResponse(msg: Buffer, srcIp: string): DeviceInfo |
 }
 
 /**
+ * Returns the MAC address bytes of the local interface used to route to destIp.
+ * Uses a temporary UDP connect to let the OS select the outgoing interface,
+ * then finds the matching MAC from os.networkInterfaces().
+ */
+export async function getMacForDestination(destIp: string): Promise<number[]> {
+	return new Promise<number[]>((resolve, reject) => {
+		const tmp = dgram.createSocket('udp4')
+
+		tmp.once('error', (err) => {
+			tmp.close()
+			reject(new Error(err.message ?? String(err)))
+		})
+
+		tmp.connect(9, destIp, () => {
+			try {
+				const addr = tmp.address() as { address: string }
+				const localAddr = addr.address
+				tmp.close()
+
+				const ifaces = os.networkInterfaces()
+				for (const name of Object.keys(ifaces)) {
+					for (const iface of ifaces[name] ?? []) {
+						if (
+							iface.family === 'IPv4' &&
+							iface.address === localAddr &&
+							iface.mac &&
+							iface.mac !== '00:00:00:00:00:00'
+						) {
+							return resolve(iface.mac.split(':').map((b) => parseInt(b, 16) & 0xff))
+						}
+					}
+				}
+				reject(new Error(`No interface found for local address ${localAddr}`))
+			} catch (_e) {
+				reject(new Error(String(_e)))
+			}
+		})
+	})
+}
+
+/**
  * Returns the local IP address used by the OS to route to destIp.
  * Uses a temporary UDP socket connect to let the OS select the outgoing interface.
  */

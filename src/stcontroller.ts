@@ -1,5 +1,4 @@
 import dgram from 'dgram'
-import os from 'os'
 import { createModuleLogger } from '@companion-module/base'
 import {
 	CMD_BUS_GET,
@@ -27,6 +26,8 @@ import {
 	DANTE_MSG_INFO_RESPONSE,
 	parseDanteInfoResponse,
 	discoverDevices,
+	buildDanteInfoRequest,
+	getMacForDestination,
 	getLocalAddressForDestination,
 } from './dante.js'
 
@@ -66,6 +67,14 @@ export class StController {
 	 * Used to diff incoming pushes (changed = info, unchanged = debug) and for feedbacks.
 	 */
 	private deviceState: Map<string, Map<string, number>> = new Map()
+
+	/**
+	 * IPs that have been verified against the configured model and are allowed
+	 * to receive Studio-T commands. Populated by authorizeDevice() after a
+	 * successful probeDevice() model match, or after multicast discovery.
+	 * _sendAwaitAck() rejects any destIp not in this set.
+	 */
+	private authorizedIps: Set<string> = new Set()
 
 	/** Callbacks registered by discoverDevices() — keyed by source IP */
 	private discoveryListeners: Map<string, (device: DeviceInfo) => void> = new Map()
@@ -164,6 +173,69 @@ export class StController {
 		this.feedbackCallback = callback
 	}
 
+	/** Returns true if the device at the given IP has been authorized to receive commands. */
+	public isDeviceAuthorized(ip: string): boolean {
+		return this.authorizedIps.has(ip)
+	}
+
+	/** Mark an IP as verified and allowed to receive Studio-T commands. */
+	public authorizeDevice(ip: string): void {
+		this.authorizedIps.add(ip)
+		logger.debug(`Authorized device at ${ip}`)
+	}
+
+	/** Remove authorization for an IP (e.g. on config change or model mismatch). */
+	public revokeDevice(ip: string): void {
+		this.authorizedIps.delete(ip)
+		this.deviceState.delete(ip)
+		logger.debug(`Revoked device at ${ip}`)
+	}
+
+	/**
+	 * Sends a unicast Dante info request to a specific IP and waits for the
+	 * device info response. Returns the DeviceInfo if the device responds within
+	 * timeoutMs, or null if no response. Used to verify a manually configured IP.
+	 * Does NOT require authorization — this is how authorization is established.
+	 */
+	public async probeDevice(ip: string, timeoutMs = 3000): Promise<DeviceInfo | null> {
+		return new Promise<DeviceInfo | null>((resolve) => {
+			const key = `__probe_${ip}__`
+			let resolved = false
+
+			const finish = (result: DeviceInfo | null) => {
+				if (resolved) return
+				resolved = true
+				this.discoveryListeners.delete(key)
+				resolve(result)
+			}
+
+			this.discoveryListeners.set(key, (device: DeviceInfo) => {
+				if (device.ip === ip) finish(device)
+			})
+
+			const timer = setTimeout(() => finish(null), timeoutMs)
+			timer.unref?.()
+
+			this.ensureMembershipFor(ip)
+				.then(async () => this.txReady)
+				.then(() => {
+					const query = buildDanteInfoRequest()
+					this.txSocket.send(query, this.defaultPort, ip, (err) => {
+						if (err) {
+							logger.warn(`Probe to ${ip} failed: ${err.message}`)
+							clearTimeout(timer)
+							finish(null)
+						}
+					})
+				})
+				.catch((e) => {
+					logger.warn(`probeDevice setup failed for ${ip}: ${e}`)
+					clearTimeout(timer)
+					finish(null)
+				})
+		})
+	}
+
 	/**
 	 * Send a CMD_GET_ALL_SETTINGS (0x0a) request to the device and store the response
 	 * in deviceState. Returns the raw response buffer for parsing.
@@ -179,29 +251,7 @@ export class StController {
 			deviceIp,
 			false,
 		)
-
-		// Debug: Log the raw response
-		logger.debug(`Raw response buffer: ${response.toString('hex')}`)
-		logger.debug(`Response length: ${response.length}`)
-
-		// Parse and store in deviceState
-		const parsed = parseGetAllSettingsForModel(this.model, response)
-		logger.debug(`Parsed settings count: ${parsed.length}`)
-		if (parsed.length > 0) {
-			logger.debug(`First few settings: ${JSON.stringify(parsed.slice(0, 3))}`)
-		}
-
-		const stateMap = new Map<string, number>()
-		for (const setting of parsed) {
-			const key = makeSettingId(this.model, setting.cmd_id, setting.id, setting.busCh)
-			// For RGB colors (3 bytes), pack into single number: (R << 16) | (G << 8) | B
-			const value =
-				setting.valueBytes.length === 3
-					? (setting.valueBytes[0] << 16) | (setting.valueBytes[1] << 8) | setting.valueBytes[2]
-					: (setting.valueBytes[0] ?? 0)
-			stateMap.set(key, value)
-		}
-		this.deviceState.set(deviceIp, stateMap) // Return buffer for caller to parse if needed
+		// deviceState is populated by logStPayload when the CMD_GET_ALL_SETTINGS response arrives
 		return response
 	}
 
@@ -362,6 +412,12 @@ export class StController {
 		addLen = true,
 	): Promise<Buffer> {
 		const timeoutMs = 2000
+
+		// Reject commands to unverified devices. probeDevice() bypasses this
+		// because it uses the Dante protocol directly via txSocket, not sendAwaitAck.
+		if (!this.authorizedIps.has(destIp)) {
+			throw new Error(`Device at ${destIp} is not authorized — verify the IP and model match before sending commands`)
+		}
 
 		// Ensure we are listening for replies on the interface that will receive them
 		await this.ensureMembershipFor(destIp)
@@ -705,46 +761,8 @@ export class StController {
 		throw new Error(`Unsupported value type for STcontroller: ${value}`)
 	}
 
-	private static async getMacForDestination(destIp: string): Promise<number[]> {
-		return new Promise<number[]>((resolve, reject) => {
-			const tmp = dgram.createSocket('udp4')
-
-			tmp.once('error', (err) => {
-				tmp.close()
-				reject(new Error(err.message ?? String(err)))
-			})
-
-			tmp.connect(9, destIp, () => {
-				try {
-					const addr = tmp.address() as { address: string }
-					const localAddr = addr.address
-
-					tmp.close()
-
-					const ifaces = os.networkInterfaces()
-					for (const name of Object.keys(ifaces)) {
-						for (const iface of ifaces[name] ?? []) {
-							if (
-								iface.family === 'IPv4' &&
-								iface.address === localAddr &&
-								iface.mac &&
-								iface.mac !== '00:00:00:00:00:00'
-							) {
-								return resolve(iface.mac.split(':').map((b) => parseInt(b, 16) & 0xff))
-							}
-						}
-					}
-
-					reject(new Error(`No interface found for local address ${localAddr}`))
-				} catch (_e) {
-					reject(new Error(String(_e)))
-				}
-			})
-		})
-	}
-
 	private static async buildHeader(totalLen: number, destIp: string): Promise<Buffer> {
-		const mac = await StController.getMacForDestination(destIp)
+		const mac = await getMacForDestination(destIp)
 
 		return Buffer.concat([
 			Buffer.from([0xff, 0xff, 0x00, totalLen & 0xff, 0x07, 0xe1, 0x00, 0x00, ...mac, 0x00, 0x00]),

@@ -40,52 +40,51 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 
 		// Wire feedback callback so stController can trigger feedback updates
 		this.stController.setFeedbackCallback((feedbackId: string) => {
-			//logger.debug(`checkFeedbacks called for: ${feedbackId}`)
 			this.checkFeedbacks(feedbackId)
 		})
 
-		// Start discovery in the background - don't block init
+		// Start discovery in the background — all model resolution, schema sync,
+		// and UI updates happen inside runDiscovery() once the device list is known.
 		this.runDiscovery().catch((e) => {
 			logger.error(`Discovery failed: ${e}`)
 		})
-
-		// Load device schema and sync to controller for message decoding
-		// Use resolveModel to auto-detect model from discovered device if selected
-		const effectiveModel = resolveModel(this.config, this.discoveredDevices)
-
-		// Only sync model if we have a valid model
-		if (effectiveModel) {
-			this.syncModel(effectiveModel)
-		} else {
-			logger.warn('No model available - skipping model sync')
-		}
-
-		// NOW update actions/feedbacks/variables after discovery and model resolution
-		this.updateActions()
-		this.updateFeedbacks()
-		this.updateVariableDefinitions()
-		this.updateVariableValues() // Set initial variable values from discovered device
 	}
 
 	/**
-	 * Run device discovery in the background.
-	 * Updates discoveredDevices and refreshes config options when complete.
+	 * Run device discovery, then resolve the model and update all UI.
+	 * - If discovery finds devices, resolveModel picks from those.
+	 * - Only if the list is empty do we fall back to the manual config selection.
+	 * All actions/feedbacks/variables are built after the model is known.
 	 */
 	private async runDiscovery(): Promise<void> {
 		logger.info('Starting device discovery...')
 
-		// Run discovery to populate the device list
 		this.discoveredDevices = await this.stController.discoverDevices()
 
+		// Determine effective model — from discovered devices first, manual config only as fallback
+		let effectiveModel: string
 		if (this.discoveredDevices.length === 0) {
-			logger.warn('No devices discovered')
+			const manualModel = this.config.activeModel
+			if (!this.config.host || !manualModel) {
+				logger.warn('No devices discovered and no manual IP/model configured')
+				return
+			}
+			logger.info('No devices discovered — will probe manual IP during authorization')
+			effectiveModel = manualModel
 		} else {
 			logger.info(`Discovered ${this.discoveredDevices.length} device(s):`)
 			for (const d of this.discoveredDevices) {
 				logger.info(`  - Model ${d.model} ${d.manufacturer ?? ''} @ ${d.ip}`)
 			}
 
-			// Request device firmware from each discovered device via Studio-T protocol
+			// Authorize all discovered devices so firmware requests can proceed.
+			// verifyAuthorization (called below) will revoke any that don't match
+			// the current config selection.
+			for (const device of this.discoveredDevices) {
+				this.stController.authorizeDevice(device.ip)
+			}
+
+			// Request firmware version from each discovered device
 			for (const device of this.discoveredDevices) {
 				try {
 					const firmware = await this.stController.requestFirmwareVersion(device.ip)
@@ -96,31 +95,25 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 					device.firmwareMain = 'Unknown'
 				}
 			}
+
+			effectiveModel = resolveModel(this.config, this.discoveredDevices)
 		}
 
-		// Re-resolve model now that devices are known
-		const effectiveModel = resolveModel(this.config, this.discoveredDevices)
-		if (effectiveModel) {
-			this.syncModel(effectiveModel)
-		}
+		// Sync model schema to controller
+		this.syncModel(effectiveModel)
 
+		// Verify that the currently configured host+model is valid now that
+		// discovery results are known. This is the same check configUpdated uses.
+		const targetHost = this.host
+		await this.verifyAuthorization('', targetHost)
+
+		// Build all UI now that model and authorization state are known
 		this.updateActions()
 		this.updateFeedbacks()
+		this.updateVariableDefinitions()
 		this.updateVariableValues()
 
 		logger.info('Device discovery complete')
-
-		// Fetch initial settings state now that model and devices are known
-		const targetHost = this.host
-		if (targetHost && effectiveModel) {
-			logger.info(`Fetching initial settings from ${targetHost}`)
-			try {
-				await this.stController.requestAllSettings(targetHost)
-				this.updateVariableValues()
-			} catch (e) {
-				logger.warn(`Failed to get all settings from ${targetHost}: ${e}`)
-			}
-		}
 	}
 
 	// When module gets deleted
@@ -135,15 +128,105 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		const effectiveModel = resolveModel(config, this.discoveredDevices)
 		this.syncModel(effectiveModel)
 
-		// Rebuild actions, feedbacks, and variables when config changes (model or device selection changed)
+		// Clear variables immediately — the new selection isn't authorized yet.
+		// They'll be repopulated below once verifyAuthorization completes.
+		this.updateVariableValues()
+
+		const newHost = this.host
+
+		// Re-verify authorization on every config change (model or IP).
+		// This handles switching from a valid device to an invalid one and back.
+		await this.verifyAuthorization(previousHost, newHost)
+
+		// Rebuild UI after authorization state is settled
 		this.updateActions()
 		this.updateFeedbacks()
 		this.updateVariableDefinitions()
-		this.updateVariableValues() // Update variable values when config changes
+		this.updateVariableValues()
+	}
 
-		// If the host changed, request settings from the new device
-		const newHost = this.host
-		if (newHost && newHost !== previousHost) {
+	/**
+	 * Re-evaluates whether the current host+model combination is authorized.
+	 * Called on every config change so that switching model or IP is always validated.
+	 *
+	 * Rules:
+	 * - discoveredHost set → device already verified by Dante, always authorize
+	 * - manual host → check against discovered list first; probe if unknown
+	 *   - discovered device at that IP with matching model → authorize
+	 *   - discovered device at that IP with wrong model → revoke + log error
+	 *   - not in discovered list → probe; authorize on match, revoke on mismatch/timeout
+	 */
+	private async verifyAuthorization(previousHost: string, newHost: string): Promise<void> {
+		if (!newHost) {
+			if (previousHost) this.stController.revokeDevice(previousHost)
+			return
+		}
+
+		if (this.config.discoveredHost) {
+			// Discovered device — identity confirmed by Dante, always authorized.
+			// Revoke the old host if it changed.
+			if (previousHost && previousHost !== newHost) {
+				this.stController.revokeDevice(previousHost)
+			}
+			const wasAuthorized = this.stController.isDeviceAuthorized(newHost)
+			if (!wasAuthorized) {
+				this.stController.authorizeDevice(newHost)
+			}
+			// Fetch settings if host changed or device wasn't previously authorized
+			if (newHost !== previousHost || !wasAuthorized) {
+				try {
+					await this.stController.requestAllSettings(newHost)
+				} catch (e) {
+					logger.warn(`Failed to get all settings from ${newHost}: ${e}`)
+				}
+			}
+			return
+		}
+
+		// Manual mode — config.host + config.activeModel must match
+		const manualModel = this.config.activeModel
+		const discoveredAtIp = this.discoveredDevices.find((d) => d.ip === newHost)
+
+		if (discoveredAtIp) {
+			// We already know what's at this IP from discovery
+			if (discoveredAtIp.model === manualModel) {
+				if (previousHost && previousHost !== newHost) this.stController.revokeDevice(previousHost)
+				const wasAuthorized = this.stController.isDeviceAuthorized(newHost)
+				if (!wasAuthorized) {
+					this.stController.authorizeDevice(newHost)
+				}
+				if (newHost !== previousHost || !wasAuthorized) {
+					try {
+						await this.stController.requestAllSettings(newHost)
+					} catch (e) {
+						logger.warn(`Failed to get all settings from ${newHost}: ${e}`)
+					}
+				}
+			} else {
+				// Wrong model selected for this IP
+				logger.error(
+					`Device selected (Model ${manualModel}) does not match detected device (Model ${discoveredAtIp.model}) at ${newHost} — commands blocked`,
+				)
+				this.stController.revokeDevice(newHost)
+			}
+			return
+		}
+
+		// IP not in discovered list — probe it
+		logger.info(`${newHost} not in discovered list — probing`)
+		if (previousHost && previousHost !== newHost) this.stController.revokeDevice(previousHost)
+		this.stController.revokeDevice(newHost) // revoke while we probe
+
+		const probed = await this.stController.probeDevice(newHost)
+		if (!probed) {
+			logger.error(`No device responded at ${newHost} — commands blocked`)
+		} else if (probed.model !== manualModel) {
+			logger.error(
+				`Device selected (Model ${manualModel}) does not match detected device (Model ${probed.model}) at ${newHost} — commands blocked`,
+			)
+		} else {
+			logger.info(`Verified Model ${probed.model} at ${newHost}`)
+			this.stController.authorizeDevice(newHost)
 			try {
 				await this.stController.requestAllSettings(newHost)
 			} catch (e) {
@@ -162,7 +245,7 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		}
 
 		const actions = Array.isArray(schema.cmdSchema) ? schema.cmdSchema : []
-		const refreshAfterCommand = schema.refreshAfterCommand ?? true // Default to true if not specified
+		const refreshAfterCommand = schema.refreshAfterCommand ?? true
 
 		this.stController.setModel(model, actions, refreshAfterCommand)
 		if (actions.length === 0) {
