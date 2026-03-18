@@ -5,13 +5,25 @@ import {
 	SomeCompanionConfigField,
 	createModuleLogger,
 } from '@companion-module/base'
-import { GetConfigFields, resolveHost, resolveModel, getDeviceSchema, type ModuleConfig } from './config.js'
+import {
+	GetConfigFields,
+	resolveHost,
+	resolveModel,
+	getDeviceSchema,
+	getDevicesFolder,
+	reloadDeviceSchemas,
+	getDeviceSchemas,
+	type ModuleConfig,
+} from './config.js'
 import { UpdateVariableDefinitions, UpdateVariableValues } from './variables.js'
 import { UpgradeScripts } from './upgrades.js'
 import { UpdateActions } from './actions.js'
 import { UpdateFeedbacks } from './feedbacks.js'
 import { StController } from './stcontroller.js'
 import type { DeviceInfo } from './types.js'
+import { getNormalizedSchemas } from './types.js'
+import { parseGetAllSettingsWithDetection, updateModelJsonFromSettings, saveModelJsonPretty } from './settingsParser.js'
+import path from 'path'
 
 const logger = createModuleLogger('ModuleInstance')
 
@@ -164,7 +176,6 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 
 		if (this.config.discoveredHost) {
 			// Discovered device — identity confirmed by Dante, always authorized.
-			// Revoke the old host if it changed.
 			if (previousHost && previousHost !== newHost) {
 				this.stController.revokeDevice(previousHost)
 			}
@@ -172,13 +183,9 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 			if (!wasAuthorized) {
 				this.stController.authorizeDevice(newHost)
 			}
-			// Fetch settings if host changed or device wasn't previously authorized
 			if (newHost !== previousHost || !wasAuthorized) {
-				try {
-					await this.stController.requestAllSettings(newHost)
-				} catch (e) {
-					logger.warn(`Failed to get all settings from ${newHost}: ${e}`)
-				}
+				const model = resolveModel(this.config, this.discoveredDevices)
+				await this.fetchSettingsAndEnsureSchema(model, newHost)
 			}
 			return
 		}
@@ -188,7 +195,6 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		const discoveredAtIp = this.discoveredDevices.find((d) => d.ip === newHost)
 
 		if (discoveredAtIp) {
-			// We already know what's at this IP from discovery
 			if (discoveredAtIp.model === manualModel) {
 				if (previousHost && previousHost !== newHost) this.stController.revokeDevice(previousHost)
 				const wasAuthorized = this.stController.isDeviceAuthorized(newHost)
@@ -196,14 +202,9 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 					this.stController.authorizeDevice(newHost)
 				}
 				if (newHost !== previousHost || !wasAuthorized) {
-					try {
-						await this.stController.requestAllSettings(newHost)
-					} catch (e) {
-						logger.warn(`Failed to get all settings from ${newHost}: ${e}`)
-					}
+					await this.fetchSettingsAndEnsureSchema(manualModel, newHost)
 				}
 			} else {
-				// Wrong model selected for this IP
 				logger.error(
 					`Device selected (Model ${manualModel}) does not match detected device (Model ${discoveredAtIp.model}) at ${newHost} — commands blocked`,
 				)
@@ -215,7 +216,7 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		// IP not in discovered list — probe it
 		logger.info(`${newHost} not in discovered list — probing`)
 		if (previousHost && previousHost !== newHost) this.stController.revokeDevice(previousHost)
-		this.stController.revokeDevice(newHost) // revoke while we probe
+		this.stController.revokeDevice(newHost)
 
 		const probed = await this.stController.probeDevice(newHost)
 		if (!probed) {
@@ -227,11 +228,47 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		} else {
 			logger.info(`Verified Model ${probed.model} at ${newHost}`)
 			this.stController.authorizeDevice(newHost)
-			try {
-				await this.stController.requestAllSettings(newHost)
-			} catch (e) {
-				logger.warn(`Failed to get all settings from ${newHost}: ${e}`)
+			await this.fetchSettingsAndEnsureSchema(manualModel, newHost)
+		}
+	}
+
+	/**
+	 * Fetches all settings from the device. If no schema exists for the model,
+	 * creates one from the response and reloads the schema cache.
+	 */
+	private async fetchSettingsAndEnsureSchema(model: string, ip: string): Promise<void> {
+		try {
+			const buf = await this.stController.requestAllSettings(ip)
+
+			if (!getDeviceSchema(model)) {
+				logger.info(`No schema found for Model ${model} — creating from device response`)
+
+				const { settings: parsed, detectedSectioned } = parseGetAllSettingsWithDetection(model, buf)
+				if (parsed.length === 0) {
+					logger.warn(`Could not parse settings for Model ${model} — schema not created`)
+					return
+				}
+
+				const schemas = getNormalizedSchemas(getDeviceSchemas())
+				const newSchema = { model, sectioned: detectedSectioned ?? false, cmdSchema: [] as any[] }
+				if (detectedSectioned !== null) {
+					newSchema.sectioned = detectedSectioned
+				}
+				const updated = updateModelJsonFromSettings(newSchema as any, parsed, schemas as any)
+
+				const schemaPath = path.join(getDevicesFolder(), `Model${model}.json`)
+				saveModelJsonPretty(schemaPath, updated)
+				reloadDeviceSchemas()
+				logger.info(`Created schema for Model ${model} at ${schemaPath}`)
+
+				// Re-sync model now that schema exists
+				this.syncModel(model)
+				this.updateActions()
+				this.updateFeedbacks()
+				this.updateVariableDefinitions()
 			}
+		} catch (e) {
+			logger.warn(`Failed to fetch settings from ${ip}: ${e}`)
 		}
 	}
 
