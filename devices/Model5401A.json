@@ -1,5 +1,163 @@
 {
 	"model": "5401A",
+	"sectioned": true,
 	"refreshAfterCommand": true,
-	"cmdSchema": []
+	"cmdSchema": [
+		{
+			"cmd_id": 30,
+			"id": 14,
+			"name": "Unknown Setting 0X0E",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 1
+				}
+			]
+		},
+		{
+			"cmd_id": 30,
+			"id": 15,
+			"name": "Unknown Setting 0X0F",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 1
+				}
+			]
+		},
+		{
+			"cmd_id": 30,
+			"id": 16,
+			"name": "Unknown Setting 0X10",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 0
+				}
+			]
+		},
+		{
+			"cmd_id": 30,
+			"id": 17,
+			"name": "Unknown Setting 0X11",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 7
+				}
+			]
+		},
+		{
+			"cmd_id": 30,
+			"id": 18,
+			"name": "Unknown Setting 0X12",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 7
+				}
+			]
+		},
+		{
+			"cmd_id": 30,
+			"id": 19,
+			"name": "Unknown Setting 0X13",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 4
+				}
+			]
+		},
+		{
+			"cmd_id": 30,
+			"id": 20,
+			"name": "Unknown Setting 0X14",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 4
+				}
+			]
+		},
+		{
+			"cmd_id": 31,
+			"id": 5,
+			"name": "Unknown Setting 0X05",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 192
+				}
+			]
+		},
+		{
+			"cmd_id": 31,
+			"id": 1,
+			"name": "Unknown Setting 0X01",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 0
+				}
+			]
+		},
+		{
+			"cmd_id": 31,
+			"id": 0,
+			"name": "Unknown Setting 0X00",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 6
+				}
+			]
+		},
+		{
+			"cmd_id": 31,
+			"id": 12,
+			"name": "Unknown Setting 0X0C",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 143
+				}
+			]
+		},
+		{
+			"cmd_id": 31,
+			"id": 20,
+			"name": "Unknown Setting 0X14",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 172
+				}
+			]
+		}
+	]
 }

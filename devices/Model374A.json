@@ -100,7 +100,7 @@
 		{
 			"cmd_id": 7,
 			"id": 0,
-			"name": "Button Function",
+			"name": "Button Operation",
 			"options": [
 				{
 					"id": "idAdd",

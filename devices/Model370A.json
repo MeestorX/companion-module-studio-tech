@@ -1,5 +1,136 @@
 {
 	"model": "370A",
+	"sectioned": true,
 	"refreshAfterCommand": true,
-	"cmdSchema": []
+	"cmdSchema": [
+		{
+			"cmd_id": 5,
+			"id": 0,
+			"name": "Phones Routing",
+			"options": [
+				{
+					"id": "idAdd",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" }
+					],
+					"default": 1,
+					"tooltip": "Select the phones channel"
+				},
+				{
+					"id": "value",
+					"label": "Routing",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Left" },
+						{ "id": 1, "label": "Right" },
+						{ "id": 2, "label": "Left and Right" }
+					],
+					"default": 2,
+					"tooltip": "Set the routing for the selected phones channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 5,
+			"id": 1,
+			"name": "Unknown Setting 0X01",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 2
+				}
+			]
+		},
+		{
+			"cmd_id": 5,
+			"id": 21,
+			"name": "Sidetone Level",
+			"options": [
+				{
+					"id": "value",
+					"label": "Level",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 5, "label": "High" },
+						{ "id": 4, "label": "Medium High" },
+						{ "id": 3, "label": "Medium" },
+						{ "id": 2, "label": "Medium Low" },
+						{ "id": 1, "label": "Low" },
+						{ "id": 0, "label": "Off" }
+					],
+					"default": 2,
+					"tooltip": "Set the sidetone level"
+				}
+			]
+		},
+		{
+			"cmd_id": 7,
+			"id": 0,
+			"name": "Button Operation",
+			"options": [
+				{
+					"id": "idAdd",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" }
+					],
+					"default": 0,
+					"tooltip": "Select the button channel"
+				},
+				{
+					"id": "value",
+					"label": "Function",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 1, "label": "Push to Talk" },
+						{ "id": 3, "label": "Push to Talk / Tap to Latch" },
+						{ "id": 5, "label": "Talk Disabled" },
+						{ "id": 6, "label": "Talk Disabled / Phones Tap to Latch" }
+					],
+					"default": 1,
+					"tooltip": "Set the function for the selected button"
+				}
+			]
+		},
+		{
+			"cmd_id": 7,
+			"id": 1,
+			"name": "Unknown Setting 0X01",
+			"options": [
+				{
+					"id": "value",
+					"label": "Value",
+					"type": "number",
+					"default": 3
+				}
+			]
+		},
+		{
+			"cmd_id": 9,
+			"id": 1,
+			"name": "Mic Kill Mode (inferred from Model 374A)",
+			"options": [
+				{
+					"id": "value",
+					"label": "Mode",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Device ID" },
+						{ "id": 2, "label": "Global Kill Command" },
+						{ "id": 3, "label": "Device ID / Global Kill Command" }
+					],
+					"default": 3,
+					"tooltip": "Microphone Kill Mode"
+				}
+			]
+		}
+	]
 }
