@@ -276,7 +276,9 @@ export class StController {
 		const foundDevices: DeviceInfo[] = []
 
 		const onDeviceFound = (device: DeviceInfo) => {
-			foundDevices.push(device)
+			if (!foundDevices.some((d) => d.ip === device.ip)) {
+				foundDevices.push(device)
+			}
 		}
 
 		// Register the callback so handleIncoming() can invoke it when 0x0170 arrives
