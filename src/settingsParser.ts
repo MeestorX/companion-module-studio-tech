@@ -264,8 +264,8 @@ export function formatParsedSetting(setting: ParsedSetting, actions: StAction[])
 	let action = actions.find((a) => a.cmd_id === setting.cmd_id && a.id === setting.id)
 
 	// If no exact match and id > base id, try to find action with idAdd option
-	// This handles cases like cmd_id 5 (Phones Routing) and cmd_id 7 (Buttons)
-	// where id 0-3 represents channels 1-4
+	// This handles cases like CMD_HEADPHONE (0x05, e.g. Phones Routing) and
+	// CMD_BUTTON_MODE (0x07, e.g. Buttons) where id 0-3 represents channels 1-4
 	if (!action) {
 		const baseAction = actions.find((a) => {
 			if (a.cmd_id !== setting.cmd_id) return false

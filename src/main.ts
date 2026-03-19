@@ -39,6 +39,10 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 	 *  can show the discovered device dropdown on subsequent config opens. */
 	private discoveredDevices: DeviceInfo[] = []
 
+	/** Currently active model — resolved once in syncModel() and cached here
+	 *  so UpdateActions, UpdateFeedbacks etc. don't each call resolveModel independently. */
+	activeModel: string = ''
+
 	constructor(internal: unknown) {
 		super(internal)
 	}
@@ -272,8 +276,9 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		}
 	}
 
-	/** Loads the device JSON for the given model and pushes it to the controller. */
+	/** Loads the device JSON for the given model, caches it as activeModel, and pushes it to the controller. */
 	private syncModel(model: string): void {
+		this.activeModel = model
 		const schema = getDeviceSchema(model)
 		if (!schema) {
 			logger.warn(`Model "${model}" not found in device schemas`)

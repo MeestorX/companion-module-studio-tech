@@ -216,37 +216,26 @@ export async function getLocalAddressForDestination(destIp: string): Promise<str
 }
 
 /**
- * Discovers Studio Technologies Dante devices on the local network.
- *
- * Strategy:
- *  Dante devices broadcast a 1-second announce to multicast 224.0.0.233:8708.
- *  We listen on that group, collect source IPs, then send a unicast device info
- *  request (0x0020) to each new IP on port 8700. The device responds on port 8702,
- *  where the provided onDeviceFound callback is invoked.
+ * Listens for Dante device announces on the local network and sends unicast
+ * info requests to each discovered IP. Responses arrive on the caller's rxSocket
+ * via handleIncoming() → discoveryListeners.
  *
  * @param txSocket - The socket to use for sending discovery requests
- * @param onDeviceFound - Callback invoked when a device info response (0x0170) is received
- * @param ensureMembership - Callback to ensure multicast membership for device IP
- * @param timeoutMs - Discovery timeout in milliseconds
+ * @param ensureMembership - Callback to ensure multicast membership before querying
+ * @param timeoutMs - How long to listen for announces before resolving
  */
 export async function discoverDevices(
 	txSocket: dgram.Socket,
-	_onDeviceFound: (device: DeviceInfo) => void, // Invoked by StController.handleIncoming(), not here
 	ensureMembership: (destIp: string) => Promise<void>,
 	timeoutMs = 5000,
-): Promise<DeviceInfo[]> {
+): Promise<void> {
 	const DANTE_ANNOUNCE_GROUP = '224.0.0.233'
 	const DANTE_ANNOUNCE_PORT = 8708
 	const DEFAULT_PORT = 8700
 
-	const found = new Map<string, DeviceInfo>()
 	const queriedIps = new Set<string>()
 
-	return new Promise<DeviceInfo[]>((resolve) => {
-		// Note: onDeviceFound callback is invoked by StController.handleIncoming()
-		// when it receives 0x0170 responses. We don't call it here to avoid duplicates.
-
-		// Open a short-lived socket just to receive the Dante periodic announces
+	return new Promise<void>((resolve) => {
 		const announceSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true })
 
 		const cleanup = () => {
@@ -260,7 +249,7 @@ export async function discoverDevices(
 			} catch {
 				/* ignore */
 			}
-			resolve(Array.from(found.values()))
+			resolve()
 		}
 
 		const timer = setTimeout(cleanup, timeoutMs)
@@ -284,14 +273,14 @@ export async function discoverDevices(
 			// Join 224.0.0.231 on the interface that routes to this device BEFORE sending
 			// the query. The device multicasts its 0x0170 response to 224.0.0.231:8702
 			// in addition to unicasting it — rxSocket must be a member to receive it.
-			ensureMembership(srcIp)
-				.then(() => {
-					const query = buildDanteInfoRequest()
-					txSocket.send(query, DEFAULT_PORT, srcIp, (err) => {
-						if (err) logger.warn(`Unicast query to ${srcIp} failed: ${err.message}`)
-					})
+			const sendQuery = async () => {
+				await ensureMembership(srcIp)
+				const query = buildDanteInfoRequest()
+				txSocket.send(query, DEFAULT_PORT, srcIp, (err) => {
+					if (err) logger.warn(`Unicast query to ${srcIp} failed: ${err.message}`)
 				})
-				.catch((err) => logger.warn(`Query setup failed: ${err}`))
+			}
+			sendQuery().catch((err) => logger.warn(`Query setup failed: ${err}`))
 		})
 
 		announceSocket.bind(DANTE_ANNOUNCE_PORT, () => {
@@ -302,7 +291,5 @@ export async function discoverDevices(
 				logger.warn(`Could not join announce multicast group: ${err}`)
 			}
 		})
-
-		// Store callback for cleanup
 	})
 }

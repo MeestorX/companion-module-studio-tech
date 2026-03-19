@@ -1,6 +1,6 @@
 import ModuleInstance from './main.js'
 import { buildFeedbacks } from './build-commands.js'
-import { resolveModel, getDeviceSchemas } from './config.js'
+import { getDeviceSchemas } from './config.js'
 import { parseSettingId, getNormalizedSchemas, findActionForSetting } from './types.js'
 import { createModuleLogger } from '@companion-module/base'
 
@@ -38,8 +38,8 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 	const schemas = getNormalizedSchemas(schemasRaw)
 	const wiredFeedbacks: any = {}
 
-	// Get the active model using resolveModel
-	const activeModel = resolveModel(self.config, self.devices)
+	// Get the active model from the cached value set by syncModel()
+	const activeModel = self.activeModel
 	logger.info(
 		`UpdateFeedbacks: activeModel="${activeModel}", discoveredHost="${self.config.discoveredHost}", devices count=${self.devices.length}`,
 	)

@@ -21,6 +21,7 @@ import {
 	parseSettingsResponse,
 	formatParsedSetting,
 	type StAction,
+	type ParsedSetting,
 } from './settingsParser.js'
 import {
 	DANTE_MSG_INFO_RESPONSE,
@@ -43,7 +44,7 @@ export class StController {
 	private pendingAcks: Map<
 		string,
 		{ resolve: (buf: Buffer) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }
-	>
+	> = new Map()
 	private joinedInterfaces: Set<string> = new Set() // local IPs we've joined multicast on
 
 	/** Serializes outgoing commands so each waits for ACK before the next is sent */
@@ -82,10 +83,11 @@ export class StController {
 	/** Callback to trigger feedback updates when state changes */
 	private feedbackCallback?: (feedbackId: string) => void
 
+	/** Cache of local interface MAC bytes per destination IP, to avoid repeated OS lookups */
+	private macCache: Map<string, number[]> = new Map()
+
 	constructor() {
 		logger.info('StController initialized')
-
-		this.pendingAcks = new Map()
 
 		// Send socket — bind to ephemeral port. Responses always go to rxSocket on
 		// port 8702 (Dante hardcodes the response destination port to 8702).
@@ -188,6 +190,7 @@ export class StController {
 	public revokeDevice(ip: string): void {
 		this.authorizedIps.delete(ip)
 		this.deviceState.delete(ip)
+		this.macCache.delete(ip)
 		logger.debug(`Revoked device at ${ip}`)
 	}
 
@@ -216,23 +219,24 @@ export class StController {
 			const timer = setTimeout(() => finish(null), timeoutMs)
 			timer.unref?.()
 
-			this.ensureMembershipFor(ip)
-				.then(async () => this.txReady)
-				.then(() => {
-					const query = buildDanteInfoRequest()
-					this.txSocket.send(query, this.defaultPort, ip, (err) => {
-						if (err) {
-							logger.warn(`Probe to ${ip} failed: ${err.message}`)
-							clearTimeout(timer)
-							finish(null)
-						}
-					})
+			const run = async () => {
+				await this.ensureMembershipFor(ip)
+				await this.txReady
+				const query = buildDanteInfoRequest()
+				this.txSocket.send(query, this.defaultPort, ip, (err) => {
+					if (err) {
+						logger.warn(`Probe to ${ip} failed: ${err.message}`)
+						clearTimeout(timer)
+						finish(null)
+					}
 				})
-				.catch((e) => {
-					logger.warn(`probeDevice setup failed for ${ip}: ${e}`)
-					clearTimeout(timer)
-					finish(null)
-				})
+			}
+
+			run().catch((e) => {
+				logger.warn(`probeDevice setup failed for ${ip}: ${e}`)
+				clearTimeout(timer)
+				finish(null)
+			})
 		})
 	}
 
@@ -242,22 +246,9 @@ export class StController {
 	 */
 	public async requestAllSettings(deviceIp: string): Promise<Buffer> {
 		logger.info(`Requesting all settings from ${deviceIp}`)
-		const response = await this.sendAwaitAck(
-			this.model,
-			CMD_GET_ALL_SETTINGS,
-			undefined,
-			undefined,
-			undefined,
-			deviceIp,
-			false,
-		)
+		const response = await this.sendAwaitAck(CMD_GET_ALL_SETTINGS, undefined, undefined, undefined, deviceIp, false)
 		// deviceState is populated by logStPayload when the CMD_GET_ALL_SETTINGS response arrives
 		return response
-	}
-
-	/** Return a snapshot of the current device state for a given IP (for feedbacks). */
-	public getDeviceState(deviceIp: string): Map<string, number> {
-		return this.deviceState.get(deviceIp) ?? new Map()
 	}
 
 	/**
@@ -286,14 +277,9 @@ export class StController {
 
 		try {
 			await this.txReady
-			// discoverDevices() in dante.ts handles the announce listening and query sending
-			// Responses come back to rxSocket → handleIncoming() → discoveryListeners
-			await discoverDevices(
-				this.txSocket,
-				onDeviceFound, // dante.ts doesn't actually use this, but kept for compatibility
-				async (destIp) => this.ensureMembershipFor(destIp),
-				timeoutMs,
-			)
+			// discoverDevices() in dante.ts handles the announce listening and query sending.
+			// Responses come back to rxSocket → handleIncoming() → discoveryListeners.
+			await discoverDevices(this.txSocket, async (destIp) => this.ensureMembershipFor(destIp), timeoutMs)
 			return foundDevices
 		} finally {
 			this.discoveryListeners.delete(DISCOVERY_KEY)
@@ -306,15 +292,7 @@ export class StController {
 	 */
 	public async requestFirmwareVersion(deviceIp: string): Promise<string> {
 		logger.info(`Requesting firmware version from ${deviceIp}`)
-		const response = await this.sendAwaitAck(
-			this.model,
-			CMD_GET_FIRMWARE,
-			undefined,
-			undefined,
-			undefined,
-			deviceIp,
-			false,
-		)
+		const response = await this.sendAwaitAck(CMD_GET_FIRMWARE, undefined, undefined, undefined, deviceIp, false)
 
 		// Response structure: [header] 0x5a 0x80 [firmware_data] CRC
 		// Firmware data starts at byte 26 (24-byte header + 0x5a + 0x80)
@@ -329,14 +307,10 @@ export class StController {
 		const major = response[dataStart + 1]
 		const minor = response[dataStart + 2]
 
-		let minorStr: string
-		if (minor === 2) {
-			minorStr = '2' // Special case: 2.2 not 2.02
-		} else if (minor < 10) {
-			minorStr = minor.toString().padStart(2, '0') // 1→"01", 5→"05"
-		} else {
-			minorStr = minor.toString() // 10+→"10", "20", etc
-		}
+		const minorStr =
+			minor < 10
+				? minor.toString().padStart(2, '0') // e.g. 1 → "01", 5 → "05"
+				: minor.toString() // e.g. 10 → "10"
 
 		const firmware = `${major}.${minorStr}`
 
@@ -345,8 +319,8 @@ export class StController {
 	}
 
 	/**
-	 * Ensure we've joined the multicast group on the interface that routes to destIp.
-	 * Option B behavior: join ONLY the interface used to reach the device.
+	 * Joins the multicast response group on the interface that routes to destIp.
+	 * Only joins the specific interface used to reach the device, and only once per interface.
 	 */
 	private async ensureMembershipFor(destIp: string): Promise<void> {
 		try {
@@ -374,7 +348,6 @@ export class StController {
 	}
 
 	public async sendAwaitAck(
-		model: string,
 		cmdId: number,
 		busCh: number | undefined,
 		settingId: number | undefined,
@@ -385,7 +358,7 @@ export class StController {
 		this.pendingCommandCount++
 		return new Promise<Buffer>((resolve, reject) => {
 			this.sendQueue = this.sendQueue.then(async () =>
-				this._sendAwaitAck(model, cmdId, busCh, settingId, value, destIp, addLen)
+				this._sendAwaitAck(cmdId, busCh, settingId, value, destIp, addLen)
 					.then((buf) => {
 						this.pendingCommandCount--
 						// Only trigger requestAllSettings when the queue is fully drained
@@ -405,7 +378,6 @@ export class StController {
 	}
 
 	private async _sendAwaitAck(
-		model: string,
 		cmdId: number,
 		busCh: number | undefined,
 		settingId: number | undefined,
@@ -439,65 +411,30 @@ export class StController {
 		const payloadWithCrc = Buffer.from([...payloadBody, crc])
 
 		const totalLen = 24 + payloadWithCrc.length
-		const header = await StController.buildHeader(totalLen, destIp)
+		const header = await this.buildHeader(totalLen, destIp)
 		const packet = Buffer.concat([header, payloadWithCrc])
 
 		// Human-readable info log for the outgoing command
-		const cmdName = getCommandName(cmdId)
 		if (settingId !== undefined && value !== undefined) {
-			// Try exact match first
-			let action = this.actions.find((a) => a.cmd_id === cmdId && a.id === settingId)
-
-			// If no exact match, try to find action with idAdd option
-			if (!action) {
-				action = this.actions.find((a) => {
-					if (a.cmd_id !== cmdId) return false
-					const hasIdAdd = a.options?.some((opt) => opt.id === 'idAdd')
-					if (!hasIdAdd) return false
-					return settingId >= a.id && settingId < a.id + 10
-				})
-			}
-
-			let settingName = action?.name ?? 'Unknown Setting'
-
-			// If this action has idAdd and the setting id is offset from base, include channel info
-			if (action) {
-				const hasIdAdd = action.options?.some((opt) => opt.id === 'idAdd')
-				if (hasIdAdd && settingId !== action.id) {
-					const channelOffset = settingId - action.id
-					settingName = `${settingName} Ch${channelOffset + 1}`
-				}
-			}
-
-			// Look for the value option to get choices
-			const valueOption = action?.options?.find((opt) => opt.id === 'value')
-			const choices = valueOption?.choices
 			const valueBytes = StController.buildValueBytes(value)
-			const valueNum = valueBytes.length === 1 ? valueBytes[0] : undefined
-			const choiceLabel = choices && valueNum !== undefined ? choices.find((c) => c.id === valueNum)?.label : undefined
-
-			const cmdHex = toHex(cmdId)
-			const idHex = toHex(settingId)
-			const valHex = bytesToHex(valueBytes)
-			const valDec = valueBytes.length === 1 ? valueBytes[0] : valueBytes.join(',')
-
-			const prefix = `cmd:${cmdHex} id:${idHex} val:${valHex}`
-			const suffix = choiceLabel ? `${settingName}: ${choiceLabel} (${valDec})` : `${settingName}: ${valDec}`
-
-			logger.info(`TX ${destIp} | ${prefix} | ${suffix}`)
+			const setting: ParsedSetting = {
+				cmd_id: cmdId,
+				id: settingId,
+				busCh,
+				valueBytes,
+			}
+			logger.info(`TX ${destIp} | ${formatParsedSetting(setting, this.actions)}`)
 		} else {
-			logger.info(`TX ${destIp} | ${cmdName}`)
+			logger.info(`TX ${destIp} | ${getCommandName(cmdId)}`)
 		}
 		logger.debug(`Sending packet to ${destIp}: ${packet.toString('hex')}`)
-
-		await this.txReady
 
 		const key = `${destIp}:${cmdId}`
 
 		return new Promise<Buffer>((resolve, reject) => {
 			const timer = setTimeout(() => {
 				this.pendingAcks.delete(key)
-				reject(new Error(`Timeout waiting for ACK from Model${model} at ${destIp}:8700`))
+				reject(new Error(`Timeout waiting for ACK from Model ${this.model} at ${destIp}:8700`))
 			}, timeoutMs)
 
 			this.pendingAcks.set(key, {
@@ -576,7 +513,7 @@ export class StController {
 		const originalCmdId = respCmdId & 0x7f // strip the response flag
 
 		// Log the payload (works for both requests and responses)
-		this.logStPayload(srcIp, originalCmdId, msg, stPayload, isResponse)
+		this.logStPayload(srcIp, originalCmdId, msg, stPayload)
 
 		// Only process as ACK if this is a response to our request
 		if (isResponse) {
@@ -601,25 +538,21 @@ export class StController {
 	 *   [2..-2]  data bytes
 	 *   [-1]     CRC-8/DVB-S2
 	 */
-	private logStPayload(srcIp: string, cmdId: number, msg: Buffer, stPayload: Buffer, isResponse = true): void {
-		const cmdName = `cmd_${toHex(cmdId)}`
+	private logStPayload(srcIp: string, cmdId: number, msg: Buffer, stPayload: Buffer): void {
+		const cmdName = getCommandName(cmdId)
 		const data = stPayload.subarray(2, stPayload.length - 1) // strip magic+cmdId header and CRC
 
-		// Show complete payload structure: [0x5a] [cmdId|0x80] [data bytes...] [crc]
-		const magic = stPayload[0]
+		// Payload structure: [cmd:0x8d] [data bytes...] [crc]
 		const respCmdId = stPayload[1]
 		const crc = stPayload[stPayload.length - 1]
-		const fullStructure = `[magic:${toHex(magic)} cmd:${toHex(respCmdId)} data:${data.toString('hex')} crc:${toHex(crc)}]`
-
-		// Determine direction prefix
-		const direction = isResponse ? 'RX' : 'SNIFF'
+		const fullStructure = `[cmd:${toHex(respCmdId)} data:${data.toString('hex')} crc:${toHex(crc)}]`
 
 		// ── CMD_GET_ALL_SETTINGS (0x0a) and CMD_SETTINGS_PUSH (0x0b) ────────────────
 		// Parse all settings, diff against deviceState, log changed at info / unchanged at debug,
 		// then update deviceState. CMD_GET_ALL_SETTINGS also serves as the initial state population on connect.
 		if (cmdId === CMD_GET_ALL_SETTINGS || cmdId === CMD_SETTINGS_PUSH) {
 			if (!this.model) {
-				logger.info(`${direction} ${srcIp} | ${cmdName} | ${fullStructure}`)
+				logger.info(`RX ${srcIp} | ${cmdName} | ${fullStructure}`)
 				return
 			}
 			try {
@@ -645,7 +578,7 @@ export class StController {
 
 					const formatted = formatParsedSetting(s, this.actions)
 					if (changed) {
-						logger.info(`${direction} ${srcIp} | ${formatted}`)
+						logger.info(`RX ${srcIp} | ${formatted}`)
 						// Trigger feedback update — use base key without busCh so it matches the feedback definition ID
 						if (this.feedbackCallback) {
 							const baseFeedbackKey = makeSettingId(this.model, s.cmd_id, s.id)
@@ -655,12 +588,12 @@ export class StController {
 							logger.warn(`feedbackCallback not set — skipping feedback update for ${stateKey}`)
 						}
 					} else {
-						logger.debug(`${direction} ${srcIp} | ${formatted}`)
+						logger.debug(`RX ${srcIp} | ${formatted}`)
 					}
 				}
 				this.deviceState.set(srcIp, newState)
 			} catch (e) {
-				logger.warn(`${direction} ${srcIp} | ${cmdName} | parse failed: ${e} | ${fullStructure}`)
+				logger.warn(`RX ${srcIp} | ${cmdName} | parse failed: ${e} | ${fullStructure}`)
 			}
 			return
 		}
@@ -668,18 +601,15 @@ export class StController {
 		// ── All other commands ────────────────────────────────────────────────────
 		const decoded = this.decodeStData(cmdId, data)
 		if (decoded) {
-			logger.info(`${direction} ${srcIp} | ${cmdName} | ${fullStructure} | ${decoded}`)
+			logger.info(`RX ${srcIp} | ${cmdName} | ${fullStructure} | ${decoded}`)
 		} else {
-			logger.info(`${direction} ${srcIp} | ${cmdName} | ${fullStructure}`)
+			logger.info(`RX ${srcIp} | ${cmdName} | ${fullStructure}`)
 		}
 	}
 
 	/**
 	 * Attempts to decode the data bytes of a Studio-T response into a
 	 * human-readable string. Returns null to fall back to raw hex.
-	 *
-	 * msg is the full packet buffer — required by the settings parsers which
-	 * locate the Studio-T signature themselves.
 	 */
 	private decodeStData(cmdId: number, data: Buffer): string | null {
 		if (data.length === 0) return 'ACK'
@@ -763,8 +693,12 @@ export class StController {
 		throw new Error(`Unsupported value type for STcontroller: ${value}`)
 	}
 
-	private static async buildHeader(totalLen: number, destIp: string): Promise<Buffer> {
-		const mac = await getMacForDestination(destIp)
+	private async buildHeader(totalLen: number, destIp: string): Promise<Buffer> {
+		let mac = this.macCache.get(destIp)
+		if (!mac) {
+			mac = await getMacForDestination(destIp)
+			this.macCache.set(destIp, mac)
+		}
 
 		return Buffer.concat([
 			Buffer.from([0xff, 0xff, 0x00, totalLen & 0xff, 0x07, 0xe1, 0x00, 0x00, ...mac, 0x00, 0x00]),
@@ -797,11 +731,11 @@ export class StController {
 		return this.deviceState.get(ip)?.get(key)
 	}
 
-	public async resetDevice(model: string, destIp: string): Promise<Buffer> {
-		return this.sendAwaitAck(model, CMD_RESET_DEVICE, undefined, 0x00, undefined, destIp, false)
+	public async resetDevice(destIp: string): Promise<Buffer> {
+		return this.sendAwaitAck(CMD_RESET_DEVICE, undefined, 0x00, undefined, destIp, false)
 	}
 
-	public async globalMicKill(model: string, destIp: string): Promise<Buffer> {
-		return this.sendAwaitAck(model, CMD_GLOBAL_MIC_KILL, undefined, undefined, undefined, destIp, false)
+	public async globalMicKill(destIp: string): Promise<Buffer> {
+		return this.sendAwaitAck(CMD_GLOBAL_MIC_KILL, undefined, undefined, undefined, destIp, false)
 	}
 }
