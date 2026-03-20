@@ -4,7 +4,7 @@
 	"name": "studio tech",
 	"shortname": "ST",
 	"description": "A Companion module for controlling Studio Technologies devices.",
-	"version": "0.5.0",
+	"version": "0.5.1",
 	"type": "connection",
 	"license": "MIT",
 	"repository": "git+https://github.com/MeestorX/companion-module-studio-tech.git",
