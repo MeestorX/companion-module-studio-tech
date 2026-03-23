@@ -7,8 +7,21 @@
 			"cmd_id": 2,
 			"id": 22,
 			"busCh": 0,
-			"name": "Mic Electret Power",
+			"name": "Microphone Input",
 			"options": [
+				{
+					"id": "idAdd",
+					"label": "Gain",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "22 dB" },
+						{ "id": 12, "label": "30 dB" },
+						{ "id": 20, "label": "42 dB" },
+						{ "id": 26, "label": "48 dB" }
+					],
+					"default": 0,
+					"tooltip": "Select mic gain"
+				},
 				{
 					"id": "value",
 					"label": "Electret Power (+3.3v)",
