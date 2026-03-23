@@ -4,6 +4,25 @@
 	"refreshAfterCommand": true,
 	"cmdSchema": [
 		{
+			"cmd_id": 2,
+			"id": 22,
+			"busCh": 0,
+			"name": "Mic Electret Power",
+			"options": [
+				{
+					"id": "value",
+					"label": "Electret Power (+3.3v)",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 5, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Enable or disable electret microphone power"
+				}
+			]
+		},
+		{
 			"cmd_id": 5,
 			"id": 0,
 			"name": "Phones Routing",
@@ -30,19 +49,6 @@
 					],
 					"default": 2,
 					"tooltip": "Set the routing for the selected phones channel"
-				}
-			]
-		},
-		{
-			"cmd_id": 5,
-			"id": 1,
-			"name": "Unknown Setting 0X01",
-			"options": [
-				{
-					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 2
 				}
 			]
 		},
@@ -100,22 +106,9 @@
 			]
 		},
 		{
-			"cmd_id": 7,
-			"id": 1,
-			"name": "Unknown Setting 0X01",
-			"options": [
-				{
-					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 3
-				}
-			]
-		},
-		{
 			"cmd_id": 9,
 			"id": 1,
-			"name": "Mic Kill Mode (inferred from Model 374A)",
+			"name": "Mic Kill Mode",
 			"options": [
 				{
 					"id": "value",

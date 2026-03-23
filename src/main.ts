@@ -166,7 +166,8 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 	 * Called on every config change so that switching model or IP is always validated.
 	 *
 	 * Rules:
-	 * - discoveredHost set → device already verified by Dante, always authorize
+	 * - discoveredHost set AND found in current discovery → authorize
+	 * - discoveredHost set but NOT found in current discovery → revoke (stale config)
 	 * - manual host → check against discovered list first; probe if unknown
 	 *   - discovered device at that IP with matching model → authorize
 	 *   - discovered device at that IP with wrong model → revoke + log error
@@ -179,7 +180,17 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		}
 
 		if (this.config.discoveredHost) {
-			// Discovered device — identity confirmed by Dante, always authorized.
+			// discoveredHost is set, but only authorize if the device was actually found
+			// in the current discovery run. A stale discoveredHost from a previous session
+			// must not be treated as verified.
+			const foundNow = this.discoveredDevices.find((d) => d.ip === newHost)
+			if (!foundNow) {
+				logger.warn(`discoveredHost "${newHost}" was not found in current discovery — not authorizing`)
+				this.stController.revokeDevice(newHost)
+				return
+			}
+
+			// Device confirmed by Dante in this session — authorize.
 			if (previousHost && previousHost !== newHost) {
 				this.stController.revokeDevice(previousHost)
 			}

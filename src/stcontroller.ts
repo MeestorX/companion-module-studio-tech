@@ -512,6 +512,11 @@ export class StController {
 		const isResponse = (respCmdId & 0x80) !== 0
 		const originalCmdId = respCmdId & 0x7f // strip the response flag
 
+		// Log raw packet for CMD_GET_ALL_SETTINGS (0x0a) responses before parsing
+		if (isResponse && originalCmdId === CMD_GET_ALL_SETTINGS) {
+			logger.debug(`Received packet from ${srcIp}: ${msg.toString('hex')}`)
+		}
+
 		// Log the payload (works for both requests and responses)
 		this.logStPayload(srcIp, originalCmdId, msg, stPayload)
 
