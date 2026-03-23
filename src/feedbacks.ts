@@ -59,9 +59,18 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 			...feedback,
 			callback: (feedbackEvent: any) => {
 				const ip = self.host
-				const busCh = feedbackEvent.options['busCh']
 				const idAdd = feedbackEvent.options['idAdd'] ?? 0
 				const settingId = baseId + idAdd
+
+				// busCh from options takes priority; fall back to fixed busCh in schema
+				let busCh = feedbackEvent.options['busCh']
+				if (busCh === undefined) {
+					const schemaAction = findActionForSetting(schemas, model, cmdId, settingId)
+					if (schemaAction?.busCh !== undefined) {
+						busCh = schemaAction.busCh
+					}
+				}
+
 				const current = self.stController.getSettingValue(ip, cmdId, settingId, busCh)
 
 				// Check if user wants label instead of numeric value
