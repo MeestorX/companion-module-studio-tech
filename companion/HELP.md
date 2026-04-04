@@ -1,6 +1,6 @@
 ## Companion Module for Studio Technologies Dante Devices
 
-v0.5.3
+v0.5.5
 
 Supported Devices so far:
 
@@ -8,6 +8,7 @@ Model 23x
 Model 207  
 Model 209  
 Model 370A  
+Model 373A  
 Model 374A  
 Model 391  
 Model 392  

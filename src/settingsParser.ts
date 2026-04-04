@@ -444,38 +444,252 @@ export function updateModelJsonFromSettings(
 	logger.info(`Updating model: ${modelJson.model}`)
 	logger.debug(`Candidates for inference: ${candidates.map((c) => c.model).join(', ')}`)
 
-	for (const { cmd_id, id, valueBytes } of parsed) {
-		let action = out.cmdSchema.find((a) => a.cmd_id === cmd_id && a.id === id)
+	// Pre-scan: for each candidate idAdd base entry, find the maximum sequential
+	// offset the packet contains (even beyond what the reference model knows).
+	// Key: `${cmd_id}_${base_id}`, value: max sequential offset seen in parsed data.
+	const idAddDeferRanges = new Map<string, number>()
+	for (const c of candidates) {
+		for (const baseEntry of c.cmdSchema ?? []) {
+			const idAddOpt = baseEntry.options?.find((o: any) => o.id === 'idAdd')
+			if (!idAddOpt?.choices) continue
+			const baseId = baseEntry.id
+			const cmdId = baseEntry.cmd_id
+			const key = `${cmdId}_${baseId}`
+			if (idAddDeferRanges.has(key)) continue
+			// Find the max sequential offset present in the parsed packet for this base
+			const parsedOffsets = parsed
+				.filter((p) => p.cmd_id === cmdId && p.id > baseId)
+				.map((p) => p.id - baseId)
+				.sort((a, b) => a - b)
+			// Walk from 1 upward — stop at first gap
+			let maxSeq = 0
+			for (const off of parsedOffsets) {
+				if (off === maxSeq + 1) maxSeq = off
+				else if (off > maxSeq + 1) break
+			}
+			if (maxSeq > 0) {
+				idAddDeferRanges.set(key, maxSeq)
+				logger.debug(`idAdd defer range for cmd_id=${toHex(cmdId)} base_id=${toHex(baseId)}: offsets 1–${maxSeq}`)
+			}
+		}
+	}
 
-		if (!action) {
-			// Try candidates in order of proximity
-			for (const c of candidates) {
-				const match = c.cmdSchema?.find((a) => a.cmd_id === cmd_id && a.id === id)
-				if (match) {
-					action = structuredClone(match)
-					action.name = `${match.name} (inferred from Model ${c.model})`
-					logger.info(`Inferred setting ${toHex(id)} from Model ${c.model}`)
-					break
+	// Pre-compute the set of all busCh values seen per (cmd_id, id) pair across the full
+	// parsed response — used later to decide fixed vs. selectable busCh.
+	const busChSeen = new Map<string, Set<number>>()
+	for (const { cmd_id, id, busCh } of parsed) {
+		if (busCh === undefined) continue
+		const key = `${cmd_id}_${id}`
+		if (!busChSeen.has(key)) busChSeen.set(key, new Set())
+		busChSeen.get(key)!.add(busCh)
+	}
+
+	// -------------------------------------------------------
+	// PASS 1: resolve each parsed entry — exact match, inferred,
+	// idAdd-fold (offset into an already-added base entry), or unknown
+	// -------------------------------------------------------
+	for (const { cmd_id, id, busCh, valueBytes } of parsed) {
+		// 1a. Exact match already in output schema — just refresh the default
+		const existingExact = out.cmdSchema.find((a) => a.cmd_id === cmd_id && a.id === id)
+		if (existingExact) {
+			const opt = existingExact.options?.find((o) => o.id === 'value')
+			if (opt) opt.default = valueBytesToOption(valueBytes).default
+			continue
+		}
+
+		// 1b. Check if this id folds into an already-added base entry via idAdd.
+		//     Gate: the offset must actually exist in the reference model's idAdd choices
+		//     to avoid swallowing unrelated same-cmd_id entries (e.g. Sidetone at id=21).
+		const idAddBase = out.cmdSchema.find((a) => {
+			if (a.cmd_id !== cmd_id) return false
+			const idAddOpt = a.options?.find((o) => o.id === 'idAdd')
+			if (!idAddOpt?.choices) return false
+			if (id <= a.id) return false
+			const offset = id - a.id
+			// Only fold if a reference model explicitly lists this offset in its idAdd choices
+			return candidates.some((c) => {
+				const refEntry = c.cmdSchema?.find((r) => r.cmd_id === cmd_id && r.id === a.id)
+				const refIdAdd = refEntry?.options?.find((o) => o.id === 'idAdd')
+				return refIdAdd?.choices?.some((ch: any) => ch.id === offset)
+			})
+		})
+		if (idAddBase) {
+			const offset = id - idAddBase.id
+			const idAddOpt = idAddBase.options?.find((o) => o.id === 'idAdd')
+			if (idAddOpt?.choices && !idAddOpt.choices.some((c: any) => c.id === offset)) {
+				let label = `Channel ${offset + 1}`
+				for (const c of candidates) {
+					const refEntry = c.cmdSchema?.find((a) => a.cmd_id === cmd_id && a.id === idAddBase.id)
+					const refIdAdd = refEntry?.options?.find((o) => o.id === 'idAdd')
+					const refChoice = refIdAdd?.choices?.find((ch: any) => ch.id === offset)
+					if (refChoice) {
+						label = refChoice.label
+						break
+					}
 				}
+				idAddOpt.choices.push({ id: offset, label })
+				logger.info(
+					`Folded cmd_id=${toHex(cmd_id)} id=${toHex(id)} into idAdd base id=${toHex(idAddBase.id)} as offset ${offset} ("${label}")`,
+				)
+			}
+			continue
+		}
+
+		// 1c. No exact match — try inference from candidate models
+		let action: StAction | undefined
+
+		for (const c of candidates) {
+			const match = c.cmdSchema?.find((a) => a.cmd_id === cmd_id && a.id === id)
+			if (match) {
+				action = structuredClone(match)
+				// Strip any existing "(inferred from Model X)" suffixes before adding our own
+				const baseName = match.name.replace(/\s*\(inferred from Model [^)]+\)/g, '').trim()
+				action.name = `${baseName} (inferred from Model ${c.model})`
+				logger.info(`Inferred cmd_id=${toHex(cmd_id)} id=${toHex(id)} from Model ${c.model} (exact)`)
+				break
 			}
 		}
 
+		// Check if this id should be deferred to pass 2 —
+		// it's a sequential idAdd offset of a known candidate base entry.
+		if (!action) {
+			let shouldDefer = false
+			for (const c of candidates) {
+				const baseEntry = c.cmdSchema?.find((a: any) => {
+					if (a.cmd_id !== cmd_id) return false
+					const idAddOpt = a.options?.find((o: any) => o.id === 'idAdd')
+					if (!idAddOpt?.choices) return false
+					if (id <= a.id) return false
+					const offset = id - a.id
+					const maxSeq = idAddDeferRanges.get(`${cmd_id}_${a.id}`) ?? 0
+					return offset <= maxSeq
+				})
+				if (baseEntry) {
+					shouldDefer = true
+					logger.debug(
+						`cmd_id=${toHex(cmd_id)} id=${toHex(id)} is an idAdd offset of candidate base id=${toHex(baseEntry.id)} — deferring to pass 2`,
+					)
+					break
+				}
+			}
+			if (shouldDefer) continue
+		}
+
+		// Fallback: unknown setting
 		if (!action) {
 			action = {
 				cmd_id,
 				id,
-				name: `Unknown Setting ${toHex(id).toUpperCase()}`,
+				name: `Unknown cmd:${toHex(cmd_id)} id:${toHex(id).toUpperCase()}`,
 				options: [valueBytesToOption(valueBytes)],
 			}
-			logger.warn(`Could not infer setting ${toHex(id)}`)
+			if (busCh !== undefined) action.busCh = busCh
+			logger.warn(`Could not infer cmd_id=${toHex(cmd_id)} id=${toHex(id)}`)
 		} else {
-			const opt = action.options?.[0]
-			if (opt) opt.default = valueBytesToOption(valueBytes).default
+			// ── Fix 1: busCh handling ──────────────────────────────────────
+			// Strip any inherited busCh option from the candidate — we'll re-derive
+			// it from what the packet actually reported for this device.
+			action.options = action.options?.filter((o) => o.id !== 'busCh') ?? []
+			delete action.busCh
+
+			const seenBusChValues = busChSeen.get(`${cmd_id}_${id}`)
+			if (seenBusChValues && seenBusChValues.size > 0) {
+				const maxBusCh = Math.max(...seenBusChValues)
+				if (maxBusCh === 0) {
+					// Only ever saw busCh=0 → fixed property, not an option
+					action.busCh = 0
+				} else {
+					// Multiple channels observed → selectable option
+					const busChChoices = Array.from({ length: maxBusCh + 1 }, (_, i) => ({
+						id: i,
+						label: `Channel ${i + 1}`,
+					}))
+					action.options.unshift({
+						id: 'busCh',
+						label: 'Channel',
+						type: 'dropdown',
+						choices: busChChoices,
+						default: 0,
+					} as any)
+				}
+			}
+
+			// ── Fix 2: default must exist in choices ───────────────────────
+			// Set the default to the observed value. If that value isn't in the
+			// inherited choices list, the choices are from a structurally different
+			// model and can't be trusted — discard them and fall back to a plain number.
+			const observedDefault = valueBytesToOption(valueBytes).default
+			const valueOpt = action.options?.find((o) => o.id === 'value')
+			if (valueOpt) {
+				if (valueOpt.choices && Array.isArray(valueOpt.choices)) {
+					const inChoices = valueOpt.choices.some((c: any) => c.id === observedDefault)
+					if (!inChoices) {
+						logger.warn(
+							`Inferred choices for cmd_id=${toHex(cmd_id)} id=${toHex(id)} don't contain observed value ${observedDefault} — discarding inherited choices`,
+						)
+						// Keep label/tooltip but drop choices, switch to plain number
+						valueOpt.type = 'number'
+						delete (valueOpt as any).choices
+					}
+				}
+				valueOpt.default = observedDefault
+			}
 		}
 
-		// Avoid duplicates
-		const exists = out.cmdSchema.some((a) => a.cmd_id === action.cmd_id && a.id === action.id)
-		if (!exists) out.cmdSchema.push(action)
+		out.cmdSchema.push(action)
+	}
+
+	// -------------------------------------------------------
+	// PASS 2: fold any deferred idAdd offsets whose base entry
+	// is now present in the output schema.
+	// Gate: the offset must either exist in a reference model's choices,
+	// OR the base entry itself was inferred (has idAdd) and the offset
+	// continues sequentially beyond the reference model's known range.
+	// -------------------------------------------------------
+	for (const { cmd_id, id } of parsed) {
+		const alreadyTopLevel = out.cmdSchema.some((a) => a.cmd_id === cmd_id && a.id === id)
+		if (alreadyTopLevel) continue
+
+		// Find a base entry in the output that has idAdd and whose id < this id
+		const idAddBase = out.cmdSchema.find((a) => {
+			if (a.cmd_id !== cmd_id) return false
+			const idAddOpt = a.options?.find((o) => o.id === 'idAdd')
+			return !!idAddOpt?.choices && id > a.id
+		})
+		if (!idAddBase) continue
+
+		const offset = id - idAddBase.id
+		const idAddOpt = idAddBase.options?.find((o) => o.id === 'idAdd')
+		if (!idAddOpt?.choices || idAddOpt.choices.some((c: any) => c.id === offset)) continue
+
+		// Accept the fold if: a reference model explicitly has this offset,
+		// OR the offsets are strictly sequential from 0 (device has more channels than reference)
+		const refHasOffset = candidates.some((c) => {
+			const refEntry = c.cmdSchema?.find((r) => r.cmd_id === cmd_id && r.id === idAddBase.id)
+			const refIdAdd = refEntry?.options?.find((o) => o.id === 'idAdd')
+			return refIdAdd?.choices?.some((ch: any) => ch.id === offset)
+		})
+		const existingOffsets = idAddOpt.choices.map((c: any) => c.id as number).sort((a, b) => a - b)
+		const isSequential = existingOffsets.length > 0 && offset === existingOffsets[existingOffsets.length - 1] + 1
+
+		if (!refHasOffset && !isSequential) continue
+
+		// Inherit label from reference model if available, otherwise generate one
+		let label = `Channel ${offset + 1}`
+		for (const c of candidates) {
+			const refEntry = c.cmdSchema?.find((a) => a.cmd_id === cmd_id && a.id === idAddBase.id)
+			const refIdAdd = refEntry?.options?.find((o) => o.id === 'idAdd')
+			const refChoice = refIdAdd?.choices?.find((ch: any) => ch.id === offset)
+			if (refChoice) {
+				label = refChoice.label
+				break
+			}
+		}
+
+		idAddOpt.choices.push({ id: offset, label })
+		logger.info(
+			`Pass 2: Folded cmd_id=${toHex(cmd_id)} id=${toHex(id)} into idAdd base id=${toHex(idAddBase.id)} as offset ${offset} ("${label}")`,
+		)
 	}
 
 	return out
@@ -500,7 +714,20 @@ export function saveModelJsonPretty(filePath: string, jsonObj: StModelJson): voi
 			orderedObj.refreshAfterCommand = jsonObj.refreshAfterCommand
 		}
 		if ('cmdSchema' in jsonObj) {
-			orderedObj.cmdSchema = jsonObj.cmdSchema
+			orderedObj.cmdSchema = jsonObj.cmdSchema.map((entry: any) => {
+				// Enforce key order within each schema entry: cmd_id, id, busCh, name, options
+				const orderedEntry: any = {}
+				if ('cmd_id' in entry) orderedEntry.cmd_id = entry.cmd_id
+				if ('id' in entry) orderedEntry.id = entry.id
+				if ('busCh' in entry) orderedEntry.busCh = entry.busCh
+				if ('name' in entry) orderedEntry.name = entry.name
+				if ('options' in entry) orderedEntry.options = entry.options
+				// Copy any remaining keys
+				for (const key of Object.keys(entry)) {
+					if (!(key in orderedEntry)) orderedEntry[key] = entry[key]
+				}
+				return orderedEntry
+			})
 		}
 		// Copy any other keys that might exist
 		for (const key of Object.keys(jsonObj)) {

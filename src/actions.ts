@@ -33,19 +33,24 @@ export function UpdateActions(self: ModuleInstance): void {
 
 			const buf = await self.stController.requestAllSettings(ip)
 
-			// Use centralized cache to get the schema
+			// Use centralized cache to get the schema (may be null for new/unknown devices)
 			let modelJson = getDeviceSchema(model)
-			if (!modelJson) {
-				logger.error(`Model ${model} schema not found in cache`)
-				return
-			}
 
 			// Parse with auto-detection
 			const { settings: parsed, detectedSectioned } = parseGetAllSettingsWithDetection(model, buf)
 			logger.debug(`parsed reply: ${JSON.stringify(parsed)}`)
 
-			// If we auto-detected the format, add it to the JSON
-			if (detectedSectioned !== null) {
+			if (!modelJson) {
+				// No schema yet — create a minimal one from the parsed settings
+				logger.info(`Model ${model} has no schema — creating new JSON from settings`)
+				modelJson = {
+					model,
+					sectioned: detectedSectioned ?? false,
+					refreshAfterCommand: true,
+					cmdSchema: [],
+				}
+			} else if (detectedSectioned !== null) {
+				// If we auto-detected the format, add it to the JSON
 				logger.info(`Auto-detected sectioned=${detectedSectioned}, adding to model JSON`)
 				modelJson = { ...modelJson, sectioned: detectedSectioned }
 			}

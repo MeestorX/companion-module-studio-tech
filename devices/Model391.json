@@ -27,14 +27,8 @@
 					"label": "Mode",
 					"type": "dropdown",
 					"choices": [
-						{
-							"id": 1,
-							"label": "Mode 1"
-						},
-						{
-							"id": 2,
-							"label": "Mode 2"
-						}
+						{ "id": 1, "label": "Mode 1" },
+						{ "id": 2, "label": "Mode 2" }
 					],
 					"default": 1,
 					"tooltip": "Set the Active Mode"
@@ -62,22 +56,10 @@
 					"label": "Call",
 					"type": "dropdown",
 					"choices": [
-						{
-							"id": 1,
-							"label": "20khz Tone Detect - Ch1"
-						},
-						{
-							"id": 2,
-							"label": "20khz Tone Detect - Ch2"
-						},
-						{
-							"id": 3,
-							"label": "20khz Tone Detect - Ch1 & Ch2"
-						},
-						{
-							"id": 4,
-							"label": "UDP Commands"
-						}
+						{ "id": 1, "label": "20khz Tone Detect - Ch1" },
+						{ "id": 2, "label": "20khz Tone Detect - Ch2" },
+						{ "id": 3, "label": "20khz Tone Detect - Ch1 & Ch2" },
+						{ "id": 4, "label": "UDP Commands" }
 					],
 					"default": 4,
 					"tooltip": "Select the Call Control Source"
@@ -105,18 +87,9 @@
 					"label": "Status",
 					"type": "dropdown",
 					"choices": [
-						{
-							"id": 0,
-							"label": "Off"
-						},
-						{
-							"id": 1,
-							"label": "On when Call Active"
-						},
-						{
-							"id": 2,
-							"label": "Always On"
-						}
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On when Call Active" },
+						{ "id": 2, "label": "Always On" }
 					],
 					"default": 1,
 					"tooltip": "Set the Visual Indicator Status"
@@ -169,18 +142,9 @@
 					"label": "Intensity",
 					"type": "dropdown",
 					"choices": [
-						{
-							"id": 0,
-							"label": "Low"
-						},
-						{
-							"id": 1,
-							"label": "Medium"
-						},
-						{
-							"id": 2,
-							"label": "High"
-						}
+						{ "id": 0, "label": "Low" },
+						{ "id": 1, "label": "Medium" },
+						{ "id": 2, "label": "High" }
 					],
 					"default": 0,
 					"tooltip": "Set the Intensity Level"
@@ -208,22 +172,10 @@
 					"label": "Minimum On",
 					"type": "dropdown",
 					"choices": [
-						{
-							"id": 0,
-							"label": "Follow Call"
-						},
-						{
-							"id": 2,
-							"label": "2 Seconds"
-						},
-						{
-							"id": 4,
-							"label": "4 Seconds"
-						},
-						{
-							"id": 6,
-							"label": "6 Seconds"
-						}
+						{ "id": 0, "label": "Follow Call" },
+						{ "id": 2, "label": "2 Seconds" },
+						{ "id": 4, "label": "4 Seconds" },
+						{ "id": 6, "label": "6 Seconds" }
 					],
 					"default": 6,
 					"tooltip": "Set the minimum On time for the Indicator"
@@ -251,22 +203,10 @@
 					"label": "Action",
 					"type": "dropdown",
 					"choices": [
-						{
-							"id": 0,
-							"label": "Continuous"
-						},
-						{
-							"id": 1,
-							"label": "Slow Flash"
-						},
-						{
-							"id": 2,
-							"label": "Fast Flash"
-						},
-						{
-							"id": 3,
-							"label": "Pulse"
-						}
+						{ "id": 0, "label": "Continuous" },
+						{ "id": 1, "label": "Slow Flash" },
+						{ "id": 2, "label": "Fast Flash" },
+						{ "id": 3, "label": "Pulse" }
 					],
 					"default": 3,
 					"tooltip": "Set the Flash Type"
@@ -294,18 +234,9 @@
 					"label": "Status",
 					"type": "dropdown",
 					"choices": [
-						{
-							"id": 0,
-							"label": "Off"
-						},
-						{
-							"id": 1,
-							"label": "Low Range"
-						},
-						{
-							"id": 2,
-							"label": "High Range"
-						}
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Low Range" },
+						{ "id": 2, "label": "High Range" }
 					],
 					"default": 2,
 					"tooltip": "Set the Audio Alert Type"
@@ -333,26 +264,11 @@
 					"label": "On Delay",
 					"type": "dropdown",
 					"choices": [
-						{
-							"id": 0,
-							"label": "Follow Call"
-						},
-						{
-							"id": 1,
-							"label": "Low Range"
-						},
-						{
-							"id": 2,
-							"label": "2 Seconds"
-						},
-						{
-							"id": 4,
-							"label": "4 Seconds"
-						},
-						{
-							"id": 6,
-							"label": "6 Seconds"
-						}
+						{ "id": 0, "label": "Follow Call" },
+						{ "id": 1, "label": "Low Range" },
+						{ "id": 2, "label": "2 Seconds" },
+						{ "id": 4, "label": "4 Seconds" },
+						{ "id": 6, "label": "6 Seconds" }
 					],
 					"default": 6,
 					"tooltip": "Set the Audio Alert On Delay"
@@ -380,22 +296,10 @@
 					"label": "Action",
 					"type": "dropdown",
 					"choices": [
-						{
-							"id": 0,
-							"label": "Continuous"
-						},
-						{
-							"id": 2,
-							"label": "Slow Beep"
-						},
-						{
-							"id": 3,
-							"label": "Fast Beep"
-						},
-						{
-							"id": 4,
-							"label": "Pulse"
-						}
+						{ "id": 0, "label": "Continuous" },
+						{ "id": 2, "label": "Slow Beep" },
+						{ "id": 3, "label": "Fast Beep" },
+						{ "id": 4, "label": "Pulse" }
 					],
 					"default": 2,
 					"tooltip": "Set the Audio Alert Type"
@@ -423,26 +327,11 @@
 					"label": "Line Out",
 					"type": "dropdown",
 					"choices": [
-						{
-							"id": 0,
-							"label": "Off"
-						},
-						{
-							"id": 1,
-							"label": "Always On - Ch1"
-						},
-						{
-							"id": 2,
-							"label": "Always On - Ch2"
-						},
-						{
-							"id": 3,
-							"label": "On when Call Active"
-						},
-						{
-							"id": 4,
-							"label": "Always On - Ch1 & Ch2"
-						}
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Always On - Ch1" },
+						{ "id": 2, "label": "Always On - Ch2" },
+						{ "id": 3, "label": "On when Call Active" },
+						{ "id": 4, "label": "Always On - Ch1 & Ch2" }
 					],
 					"default": 4,
 					"tooltip": "Set Line Out Mode"
