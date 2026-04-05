@@ -40,7 +40,7 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		if (!this.stController) {
 			this.stController = new StController()
 		}
-		this.updateStatus(InstanceStatus.Ok)
+		this.updateStatus(InstanceStatus.Connecting, 'Discovering devices...')
 
 		// Wire feedback callback so stController can trigger feedback updates
 		this.stController.setFeedbackCallback((feedbackId: string) => {
@@ -68,6 +68,13 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		// Determine effective model — from discovered devices first, manual config only as fallback
 		let effectiveModel: string
 		if (this.discoveredDevices.length === 0) {
+			// If a specific device MAC was saved in config, it wasn't found — stop here.
+			if (this.config.deviceMac) {
+				const modelLabel = this.config.activeModel ? `Model ${this.config.activeModel} ` : ''
+				logger.warn(`Saved device MAC "${this.config.deviceMac}" not found during discovery — stopping`)
+				this.updateStatus(InstanceStatus.ConnectionFailure, `${modelLabel}[${this.config.deviceMac}] not found`)
+				return
+			}
 			const manualModel = this.config.activeModel
 			if (!this.config.host || !manualModel) {
 				logger.warn('No devices discovered and no manual IP/model configured')
@@ -101,6 +108,14 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 			}
 
 			effectiveModel = resolveModel(this.config, this.discoveredDevices)
+
+			// If a specific MAC was saved but isn't in the discovered list, stop.
+			if (!effectiveModel && this.config.deviceMac) {
+				const modelLabel = this.config.activeModel ? `Model ${this.config.activeModel} ` : ''
+				logger.warn(`Saved device MAC "${this.config.deviceMac}" not found among discovered devices — stopping`)
+				this.updateStatus(InstanceStatus.ConnectionFailure, `${modelLabel}[${this.config.deviceMac}] not found`)
+				return
+			}
 		}
 
 		// Sync model schema to controller
@@ -117,6 +132,7 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		this.updateVariableDefinitions()
 		this.updateVariableValues()
 
+		this.updateStatus(InstanceStatus.Ok)
 		logger.info('Device discovery complete')
 	}
 
@@ -150,16 +166,15 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 	}
 
 	/**
-	 * Re-evaluates whether the current host+model combination is authorized.
-	 * Called on every config change so that switching model or IP is always validated.
+	 * Re-evaluates whether the current config is authorized to send commands.
 	 *
-	 * Rules:
-	 * - discoveredHost set AND found in current discovery → authorize
-	 * - discoveredHost set but NOT found in current discovery → revoke (stale config)
-	 * - manual host → check against discovered list first; probe if unknown
-	 *   - discovered device at that IP with matching model → authorize
-	 *   - discovered device at that IP with wrong model → revoke + log error
-	 *   - not in discovered list → probe; authorize on match, revoke on mismatch/timeout
+	 * Auto mode (deviceMac set):
+	 *   - Find the discovered device with matching MAC → get its current IP
+	 *   - Revoke the previous IP, authorize the new IP
+	 *   - If MAC not found in discovery, revoke and block
+	 *
+	 * Manual mode (deviceMac empty):
+	 *   - Check discovered list by IP+model match, or probe directly
 	 */
 	private async verifyAuthorization(previousHost: string, newHost: string): Promise<void> {
 		if (!newHost) {
@@ -167,18 +182,15 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 			return
 		}
 
-		if (this.config.discoveredHost) {
-			// discoveredHost is set, but only authorize if the device was actually found
-			// in the current discovery run. A stale discoveredHost from a previous session
-			// must not be treated as verified.
-			const foundNow = this.discoveredDevices.find((d) => d.ip === newHost)
-			if (!foundNow) {
-				logger.warn(`discoveredHost "${newHost}" was not found in current discovery — not authorizing`)
-				this.stController.revokeDevice(newHost)
+		if (this.config.deviceMac) {
+			// Auto mode — match by MAC, use whatever IP discovery found it at
+			const device = this.discoveredDevices.find((d) => d.mac === this.config.deviceMac)
+			if (!device) {
+				logger.warn(`Device MAC "${this.config.deviceMac}" not found in current discovery — not authorizing`)
+				if (previousHost) this.stController.revokeDevice(previousHost)
 				return
 			}
 
-			// Device confirmed by Dante in this session — authorize.
 			if (previousHost && previousHost !== newHost) {
 				this.stController.revokeDevice(previousHost)
 			}
@@ -187,14 +199,13 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 				this.stController.authorizeDevice(newHost)
 			}
 			if (newHost !== previousHost || !wasAuthorized) {
-				const model = resolveModel(this.config, this.discoveredDevices)
-				await this.fetchSettingsAndEnsureSchema(model, newHost)
+				await this.fetchSettingsAndEnsureSchema(device.model, newHost)
 			}
 			return
 		}
 
 		// Manual mode — config.host + config.activeModel must match
-		const manualModel = this.config.activeModel
+		const manualModel = String(this.config.activeModel ?? '')
 		const discoveredAtIp = this.discoveredDevices.find((d) => d.ip === newHost)
 
 		if (discoveredAtIp) {
@@ -212,11 +223,15 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 					`Device selected (Model ${manualModel}) does not match detected device (Model ${discoveredAtIp.model}) at ${newHost} — commands blocked`,
 				)
 				this.stController.revokeDevice(newHost)
+				this.updateStatus(
+					InstanceStatus.ConnectionFailure,
+					`Model mismatch: expected ${manualModel}, got ${discoveredAtIp.model}`,
+				)
 			}
 			return
 		}
 
-		// IP not in discovered list — probe it
+		// IP not in discovered list — probe it directly via Dante
 		logger.info(`${newHost} not in discovered list — probing`)
 		if (previousHost && previousHost !== newHost) this.stController.revokeDevice(previousHost)
 		this.stController.revokeDevice(newHost)
@@ -224,14 +239,20 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		const probed = await this.stController.probeDevice(newHost)
 		if (!probed) {
 			logger.error(`No device responded at ${newHost} — commands blocked`)
+			this.updateStatus(InstanceStatus.UnknownWarning, `Device offline: ${newHost}`)
 		} else if (probed.model !== manualModel) {
 			logger.error(
 				`Device selected (Model ${manualModel}) does not match detected device (Model ${probed.model}) at ${newHost} — commands blocked`,
+			)
+			this.updateStatus(
+				InstanceStatus.ConnectionFailure,
+				`Model mismatch: expected ${manualModel}, got ${probed.model}`,
 			)
 		} else {
 			logger.info(`Verified Model ${probed.model} at ${newHost}`)
 			this.stController.authorizeDevice(newHost)
 			await this.fetchSettingsAndEnsureSchema(manualModel, newHost)
+			this.updateStatus(InstanceStatus.Ok)
 		}
 	}
 
@@ -281,9 +302,9 @@ export default class ModuleInstance extends InstanceBase<ModuleTypes> {
 		return GetConfigFields(this.discoveredDevices)
 	}
 
-	/** Returns the effective host IP, preferring the discovered device selection. */
+	/** Returns the effective host IP, resolved from MAC→IP via discoveredDevices (auto) or config.host (manual). */
 	get host(): string {
-		return resolveHost(this.config)
+		return resolveHost(this.config, this.discoveredDevices)
 	}
 
 	/** Returns discovered devices for use in actions/config */

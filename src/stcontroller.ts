@@ -361,8 +361,9 @@ export class StController {
 				this._sendAwaitAck(cmdId, busCh, settingId, value, destIp, addLen)
 					.then((buf) => {
 						this.pendingCommandCount--
-						// Only trigger requestAllSettings when the queue is fully drained
-						if (this.pendingCommandCount === 0 && this.refreshAfterCommand && settingId !== undefined) {
+						// Only trigger requestAllSettings after a write (SET) command, not a read/poll.
+						// A write always has a value; reads (GET, BUS_GET) never do.
+						if (this.pendingCommandCount === 0 && this.refreshAfterCommand && value !== undefined) {
 							this.requestAllSettings(destIp).catch((err) => {
 								logger.warn(`Failed to refresh settings after command: ${err}`)
 							})
@@ -605,10 +606,12 @@ export class StController {
 
 		// ── All other commands ────────────────────────────────────────────────────
 		const decoded = this.decodeStData(cmdId, data)
+		// CMD_BUS_GET (keepalive) is high-frequency noise — log at debug only
+		const logFn = cmdId === CMD_BUS_GET ? logger.debug.bind(logger) : logger.info.bind(logger)
 		if (decoded) {
-			logger.info(`RX ${srcIp} | ${cmdName} | ${fullStructure} | ${decoded}`)
+			logFn(`RX ${srcIp} | ${cmdName} | ${fullStructure} | ${decoded}`)
 		} else {
-			logger.info(`RX ${srcIp} | ${cmdName} | ${fullStructure}`)
+			logFn(`RX ${srcIp} | ${cmdName} | ${fullStructure}`)
 		}
 	}
 

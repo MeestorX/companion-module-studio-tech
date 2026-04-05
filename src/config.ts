@@ -6,10 +6,12 @@ import type { DeviceInfo } from './types.js'
 const logger = createModuleLogger('Config')
 
 export type ModuleConfig = JsonObject & {
+	/** MAC of the selected discovered device (e.g. "00:1d:c1:9b:a6:cd"), or '' for manual mode */
+	deviceMac: string
+	/** Manual IP address — only used when deviceMac is '' */
 	host: string
+	/** Manual model selection — only used when deviceMac is '' */
 	activeModel: string
-	/** IP of a discovered Dante device, or '' when the user chooses Manual */
-	discoveredHost: string
 }
 
 // ============================================================================
@@ -124,34 +126,30 @@ function loadAvailableModels(): string[] {
 export function GetConfigFields(discoveredDevices: DeviceInfo[] = []): SomeCompanionConfigField[] {
 	const models = loadAvailableModels()
 
-	// Build choices mirroring the bonjour-device pattern:
-	//   first entry is always 'Manual' (empty value)
-	//   then one entry per discovered device
+	// Dropdown id is the device MAC — stable across IP changes.
+	// Empty id = Manual mode.
 	const deviceChoices = [
-		{ id: '', label: 'Manual' },
+		{ id: '', label: 'Manual (enter IP + model below)' },
 		...discoveredDevices.map((d) => ({
-			id: d.ip,
-			label: `Model ${d.model} (${d.ip})`,
+			id: d.mac ?? '',
+			label: `Model ${d.model} [${d.mac}] @ ${d.ip}`,
 		})),
 	]
 
 	return [
-		// ── Device discovery dropdown ────────────────────────────────────────
-		// Mirrors the bonjour-device field: selecting a device populates the
-		// host automatically; selecting 'Manual' shows the textinput below.
+		// ── Device selection dropdown ────────────────────────────────────────
+		// Stores the MAC so re-discovery with a changed IP still matches.
 		{
 			type: 'dropdown',
-			id: 'discoveredHost',
+			id: 'deviceMac',
 			label: 'Device',
 			width: 8,
 			default: '',
 			choices: deviceChoices,
-			tooltip: 'Select an auto-discovered Studio Technologies Dante device, or choose Manual to enter an IP address.',
+			tooltip: 'Select an auto-discovered Studio Technologies device, or choose Manual to enter an IP address.',
 		},
 
-		// ── Manual IP entry ──────────────────────────────────────────────────
-		// Only visible when discoveredHost is '' (Manual selected).
-		// Matches the pattern from the bonjour-device docs.
+		// ── Manual IP entry — only visible in manual mode ────────────────────
 		{
 			type: 'textinput',
 			id: 'host',
@@ -159,13 +157,11 @@ export function GetConfigFields(discoveredDevices: DeviceInfo[] = []): SomeCompa
 			width: 8,
 			default: '',
 			regex: Regex.IP,
-			isVisibleExpression: `!$(options:discoveredHost)`,
+			isVisibleExpression: `!$(options:deviceMac)`,
 			tooltip: 'Enter the IP address of the device manually.',
 		},
 
-		// ── Model selector ───────────────────────────────────────────────────
-		// Only visible when Manual mode is selected (no discovered device).
-		// When a discovered device is selected, the model is auto-detected.
+		// ── Manual model selector — only visible in manual mode ──────────────
 		{
 			type: 'dropdown',
 			id: 'activeModel',
@@ -176,38 +172,36 @@ export function GetConfigFields(discoveredDevices: DeviceInfo[] = []): SomeCompa
 				id: model,
 				label: `Model ${model}`,
 			})),
-			isVisibleExpression: `!$(options:discoveredHost)`,
-			tooltip: 'Select which Studio Technologies model is active for actions and Get All Settings',
+			isVisibleExpression: `!$(options:deviceMac)`,
+			tooltip: 'Select which Studio Technologies model is active for actions and feedbacks.',
 		},
 	]
 }
 
 /**
- * Returns the effective host IP from config — prefers the discovered device
- * IP when one is selected, falls back to the manually entered host.
+ * Returns the effective host IP.
+ * Auto mode (deviceMac set): finds the current IP of the discovered device with that MAC.
+ * Manual mode (deviceMac empty): returns the manually entered host IP.
  */
-export function resolveHost(config: ModuleConfig): string {
-	return config.discoveredHost || config.host
+export function resolveHost(config: ModuleConfig, discoveredDevices: DeviceInfo[]): string {
+	if (config.deviceMac) {
+		const device = discoveredDevices.find((d) => d.mac === config.deviceMac)
+		return device?.ip ?? ''
+	}
+	return String(config.host ?? '')
 }
 
 /**
- * Returns the effective model — if a discovered device is selected, extracts
- * its model from the discoveredDevices list; otherwise uses activeModel.
- * Returns empty string if no devices are discovered and using discoveredHost mode.
+ * Returns the effective model.
+ * Auto mode: uses the model from the discovered device matching the stored MAC.
+ * Manual mode: uses the manually selected activeModel.
  */
 export function resolveModel(config: ModuleConfig, discoveredDevices: DeviceInfo[]): string {
-	if (config.discoveredHost) {
-		const device = discoveredDevices.find((d) => d.ip === config.discoveredHost)
-		logger.debug(`resolveModel: discoveredHost="${config.discoveredHost}", found device: ${device?.model ?? 'none'}`)
-		if (device?.model) {
-			return device.model
-		}
-		// If using discoveredHost mode but no device found, don't fall back to activeModel
-		if (discoveredDevices.length === 0) {
-			logger.warn(`resolveModel: No devices discovered, cannot determine model`)
-			return ''
-		}
+	if (config.deviceMac) {
+		const device = discoveredDevices.find((d) => d.mac === config.deviceMac)
+		logger.debug(`resolveModel: deviceMac="${config.deviceMac}", found device: ${device?.model ?? 'none'}`)
+		return device?.model ?? ''
 	}
-	logger.debug(`resolveModel: falling back to activeModel="${config.activeModel}"`)
-	return config.activeModel
+	logger.debug(`resolveModel: manual mode, activeModel="${config.activeModel}"`)
+	return String(config.activeModel ?? '')
 }

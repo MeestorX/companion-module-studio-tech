@@ -23,7 +23,7 @@ export type DeviceInfo = {
 
 // ─── Studio-T Command ID Constants ────────────────────────────────────────────
 export const CMD_GET_FIRMWARE = 0x00 // Request device firmware version
-export const CMD_BUS_GET = 0x03 // Get setting from specific bus/channel
+export const CMD_BUS_GET = 0x03 // Heartbeat / keepalive ping
 export const CMD_BUS_SET = 0x04 // Set setting on specific bus/channel
 export const CMD_HEADPHONE = 0x05 // Headphone controls (reserved for future use)
 export const CMD_BUTTON_MODE = 0x07 // Button mode configuration (reserved for future use)
@@ -42,7 +42,7 @@ export function getCommandName(cmdId: number): string {
 		case CMD_GET_FIRMWARE:
 			return 'Get Firmware Version'
 		case CMD_BUS_GET:
-			return 'Get Bus Setting'
+			return 'Heartbeat'
 		case CMD_BUS_SET:
 			return 'Set Bus Setting'
 		case CMD_HEADPHONE:

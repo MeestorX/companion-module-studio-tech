@@ -16,9 +16,6 @@ export function UpdateActions(self: ModuleInstance): void {
 	const wiredActions: any = {}
 
 	const activeModel = self.activeModel
-	logger.info(
-		`UpdateActions: activeModel="${activeModel}", discoveredHost="${self.config.discoveredHost}", devices count=${self.devices.length}`,
-	)
 
 	// ---------------------------------------------
 	// ✅ GLOBAL: GET ALL SETTINGS (AUTO JSON UPDATE)

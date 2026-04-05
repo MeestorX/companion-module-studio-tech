@@ -40,9 +40,6 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 
 	// Get the active model from the cached value set by syncModel()
 	const activeModel = self.activeModel
-	logger.info(
-		`UpdateFeedbacks: activeModel="${activeModel}", discoveredHost="${self.config.discoveredHost}", devices count=${self.devices.length}`,
-	)
 
 	// ---------------------------------------------
 	// ✅ BUILD PER-SETTING FEEDBACKS (FILTERED BY ACTIVE MODEL)
