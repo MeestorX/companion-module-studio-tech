@@ -23,24 +23,27 @@ export type DeviceInfo = {
 
 // ─── Studio-T Command ID Constants ────────────────────────────────────────────
 export const CMD_GET_FIRMWARE = 0x00 // Request device firmware version
+export const CMD_MIC_PRE = 0x02 // Mic preamp raw set (gain, phantom) — positional bytes, no setting IDs
 export const CMD_BUS_GET = 0x03 // Heartbeat / keepalive ping
 export const CMD_BUS_SET = 0x04 // Set setting on specific bus/channel
-export const CMD_HEADPHONE = 0x05 // Headphone controls (reserved for future use)
-export const CMD_BUTTON_MODE = 0x07 // Button mode configuration (reserved for future use)
-export const CMD_SYSTEM = 0x09 // System-level commands (reserved for future use)
+export const CMD_HEADPHONE = 0x05 // Headphone controls
+export const CMD_BUTTON_MODE = 0x07 // Button mode configuration
+export const CMD_SYSTEM = 0x09 // System-level commands
 export const CMD_GET_ALL_SETTINGS = 0x0a // Request all current settings from device
 export const CMD_SETTINGS_PUSH = 0x0b // Unsolicited settings update from device
 export const CMD_DEV_SPEC = 0x0d // Device-specific setting get/set with ACK
 export const CMD_RESET_DEVICE = 0x0e // Factory reset command
 export const CMD_GLOBAL_MIC_KILL = 0x10 // Emergency mic kill (all channels)
 export const CMD_MIC_PRE_BUS = 0x12 // Mic/preamp settings per bus (gain, phantom, etc)
-export const CMD_CHANNEL = 0x14 // Channel-specific controls (reserved for future use)
+export const CMD_CHANNEL = 0x14 // Channel-specific controls
 
 // ─── Command Name Helper ──────────────────────────────────────────────────────
 export function getCommandName(cmdId: number): string {
 	switch (cmdId) {
 		case CMD_GET_FIRMWARE:
 			return 'Get Firmware Version'
+		case CMD_MIC_PRE:
+			return 'Mic Preamp'
 		case CMD_BUS_GET:
 			return 'Heartbeat'
 		case CMD_BUS_SET:

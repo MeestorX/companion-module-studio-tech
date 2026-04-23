@@ -41,9 +41,11 @@ function buildOption(o: any): any {
 		case 'checkbox':
 			return { ...base, default: o.default ?? false }
 
+		case 'static-text':
+			return { ...base, value: o.value ?? '' }
+
 		case 'textinput':
 		case 'colorpicker':
-		case 'static-text':
 		default:
 			return base
 	}

@@ -18,7 +18,7 @@
 						{ "id": 42, "label": "42dB" },
 						{ "id": 36, "label": "36dB" },
 						{ "id": 30, "label": "30dB" },
-						{ "id": 22, "label": "24dB" }
+						{ "id": 24, "label": "24dB" }
 					],
 					"default": 36,
 					"tooltip": "Set the microphone preamplifier gain"

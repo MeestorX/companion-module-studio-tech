@@ -2,6 +2,7 @@ import fs from 'fs'
 import { getDeviceSchema } from './config.js'
 import { createModuleLogger } from '@companion-module/base'
 import {
+	CMD_MIC_PRE,
 	CMD_BUS_SET,
 	CMD_CHANNEL,
 	CMD_DEV_SPEC,
@@ -176,8 +177,14 @@ export function parseGetAllSettings_sectioned(buf: Buffer, model: string): Parse
 	// Get RGB IDs for this model
 	const { rgbIds } = getModelConfig(model)
 
-	// Command IDs that include a busCh byte in their section structure
+	// Command IDs that include a busCh byte in their section structure,
+	// followed by a dataLen byte and then id:val pairs.
 	const commandsWithBusCh = [CMD_BUS_SET, CMD_MIC_PRE_BUS, CMD_CHANNEL]
+
+	// Command IDs that include a busCh byte but store raw positional value bytes
+	// rather than id:val pairs (no dataLen byte, no setting IDs).
+	// Format: [cmdLen] [cmdId] [busCh] [val0] [val1] ...
+	const commandsRawValue = [CMD_MIC_PRE] // cmd=0x02
 
 	while (p + 2 < end) {
 		const cmdLen = buf[p]
@@ -186,22 +193,32 @@ export function parseGetAllSettings_sectioned(buf: Buffer, model: string): Parse
 		const sectionEnd = p + 1 + cmdLen
 		if (sectionEnd > end) break
 
-		// Check if this command includes a busCh byte
 		const hasBusCh = commandsWithBusCh.includes(sectionCmdId)
+		const isRawValue = commandsRawValue.includes(sectionCmdId)
 
 		let busCh: number | undefined
 		let dataLen: number
 		let q: number
 
-		if (hasBusCh) {
+		if (isRawValue) {
+			// Structure: [cmdLen] [cmdId] [busCh] [val0] [val1] ...
+			// Emit each value byte as a separate ParsedSetting with positional id.
+			busCh = buf[p + 2]
+			const rawBytes = buf.subarray(p + 3, sectionEnd)
+			for (let i = 0; i < rawBytes.length; i++) {
+				out.push({ cmd_id: sectionCmdId, id: i, busCh, valueBytes: [rawBytes[i]] })
+			}
+			p = sectionEnd
+			continue
+		} else if (hasBusCh) {
 			// Structure: [cmdLen] [cmdId] [busCh] [dataLen] [id:val pairs]
 			busCh = buf[p + 2]
 			dataLen = buf[p + 3]
-			q = p + 4 // Data starts after cmdLen, cmdId, busCh, dataLen
+			q = p + 4
 		} else {
 			// Structure: [cmdLen] [cmdId] [dataLen] [id:val pairs]
 			dataLen = buf[p + 2]
-			q = p + 3 // Data starts after cmdLen, cmdId, dataLen
+			q = p + 3
 		}
 
 		const qEnd = q + dataLen
@@ -228,6 +245,20 @@ export function parseGetAllSettings_sectioned(buf: Buffer, model: string): Parse
 				setting.busCh = busCh
 			}
 			out.push(setting)
+		}
+
+		// Positional fallback: if the byte we read as dataLen was 0x00 but the section
+		// still contains data bytes, this section likely uses a no-dataLen format where
+		// each byte after cmdId is a raw value at a fixed position (position = id).
+		// Re-parse from p+2 (right after cmdId), treating the "dataLen" byte as id=0.
+		if (qEnd === q && sectionEnd > p + 3) {
+			let pos = hasBusCh ? p + 3 : p + 2 // skip cmdId (and busCh if present)
+			let posId = 0
+			while (pos < sectionEnd) {
+				const setting: ParsedSetting = { cmd_id: sectionCmdId, id: posId++, valueBytes: [buf[pos++]] }
+				if (busCh !== undefined) setting.busCh = busCh
+				out.push(setting)
+			}
 		}
 
 		p = sectionEnd

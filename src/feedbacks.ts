@@ -2,9 +2,6 @@ import ModuleInstance from './main.js'
 import { buildFeedbacks } from './build-commands.js'
 import { getDeviceSchemas } from './config.js'
 import { parseSettingId, getNormalizedSchemas, findActionForSetting } from './types.js'
-import { createModuleLogger } from '@companion-module/base'
-
-const logger = createModuleLogger('Feedbacks')
 
 /**
  * Helper function to get label from choices based on value
@@ -86,5 +83,5 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 
 	self.setFeedbackDefinitions(wiredFeedbacks)
 
-	logger.info(`UpdateFeedbacks: wired feedbacks: ${Object.keys(wiredFeedbacks).length}`)
+	//console.log('Feedbacks:\n', JSON.stringify(wiredFeedbacks, null, 2))
 }

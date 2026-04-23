@@ -7,6 +7,7 @@ import {
 	CMD_GET_ALL_SETTINGS,
 	CMD_GET_FIRMWARE,
 	CMD_GLOBAL_MIC_KILL,
+	CMD_MIC_PRE,
 	CMD_MIC_PRE_BUS,
 	CMD_RESET_DEVICE,
 	CMD_SETTINGS_PUSH,
@@ -632,6 +633,16 @@ export class StController {
 		}
 
 		switch (cmdId) {
+			// ── CMD_MIC_PRE (0x02): raw preamp echo — positional bytes, no setting IDs ──
+			// Device echoes [busCh][val0][val1]... confirming the applied values.
+			case CMD_MIC_PRE: {
+				const busCh = data[0]
+				const vals = Array.from(data.subarray(1))
+					.map((b, i) => `[${i}]=0x${b.toString(16).padStart(2, '0')}(${b})`)
+					.join(' ')
+				return `ch=${busCh} ${vals}`
+			}
+
 			// ── CMD_DEV_SPEC (0x0d): single-byte ACK or echo of applied setting ──
 			// Device sends two CMD_DEV_SPEC packets in response to a set:
 			//   1. ACK:  [status]               (1 byte, 0x00 = ok)

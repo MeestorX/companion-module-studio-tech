@@ -1,13 +1,13 @@
 {
 	"name": "companion-module-studio-tech",
-	"version": "0.5.6",
+	"version": "0.5.7",
 	"main": "dist/main.js",
 	"type": "module",
 	"scripts": {
 		"postinstall": "husky",
 		"format": "prettier -w .",
 		"package": "run build && companion-module-build",
-		"package-dev": "yarn build && companion-module-build --dev",
+		"package:dev": "yarn build && companion-module-build --dev",
 		"build": "rimraf dist && run build:main",
 		"build:main": "tsc -p tsconfig.build.json",
 		"dev": "tsc -p tsconfig.build.json --watch",

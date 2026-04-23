@@ -100,7 +100,7 @@ export function UpdateActions(self: ModuleInstance): void {
 	// ---------------------------------------------
 	const activeSchema = schemas[activeModel]
 	if (activeSchema) {
-		const supportsMicKill = (activeSchema.cmdSchema ?? []).some((a: any) => a.name.includes('Kill'))
+		const supportsMicKill = (activeSchema.cmdSchema ?? []).some((a: any) => a.name.includes('Mic'))
 
 		if (supportsMicKill) {
 			const actionId = `${activeModel}_micKill`
@@ -112,6 +112,9 @@ export function UpdateActions(self: ModuleInstance): void {
 					const ip = self.host
 					logger.info(`Mic Kill → Model ${activeModel} @ ${ip}`)
 					await self.stController.globalMicKill(ip)
+					await self.stController.requestAllSettings(ip).catch((err) => {
+						logger.warn(`Failed to refresh settings after command: ${err}`)
+					})
 				},
 			}
 		}
@@ -119,5 +122,5 @@ export function UpdateActions(self: ModuleInstance): void {
 
 	self.setActionDefinitions(wiredActions)
 
-	logger.info(`UpdateActions: wired actions: ${Object.keys(wiredActions).length}`)
+	//console.log('Actions:\n', JSON.stringify(wiredActions, null, 2))
 }
