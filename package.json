@@ -1,6 +1,6 @@
 {
 	"name": "companion-module-studio-tech",
-	"version": "0.5.8",
+	"version": "0.5.9",
 	"main": "dist/main.js",
 	"type": "module",
 	"scripts": {

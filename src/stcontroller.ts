@@ -389,32 +389,35 @@ export class StController {
 	): Promise<Buffer> {
 		const timeoutMs = 2000
 
-		// Reject commands to unverified devices. probeDevice() bypasses this
-		// because it uses the Dante protocol directly via txSocket, not sendAwaitAck.
-		if (!this.authorizedIps.has(destIp)) {
-			throw new Error(`Device at ${destIp} is not authorized — verify the IP and model match before sending commands`)
-		}
-
-		// Ensure we are listening for replies on the interface that will receive them
-		await this.ensureMembershipFor(destIp)
-
 		const dataBlock: number[] = []
 		if (settingId !== undefined) dataBlock.push(settingId & 0xff)
 		if (value !== undefined) dataBlock.push(...StController.buildValueBytes(value))
 
 		const payloadBody: number[] = [0x5a, cmdId & 0xff]
 
-		if (busCh !== undefined) payloadBody.push(busCh & 0xff)
-		if (addLen) payloadBody.push(dataBlock.length)
-
-		if (dataBlock.length > 0) payloadBody.push(...dataBlock)
+		if (cmdId === CMD_MIC_PRE && busCh !== undefined && settingId !== undefined && value !== undefined) {
+			// Positional format: [0x5a] [0x02] [busCh] [val0] [val1] [val2] ...
+			// Read all positions from deviceState, override the target position with new value.
+			// Also update deviceState optimistically so consecutive CMD_MIC_PRE commands chain correctly.
+			if (!this.deviceState.has(destIp)) this.deviceState.set(destIp, new Map())
+			const ipState = this.deviceState.get(destIp)!
+			const numPositions = 3 // gain, electret/phantom, unknown
+			const positions: number[] = []
+			for (let i = 0; i < numPositions; i++) {
+				const stateKey = makeSettingId(this.model, CMD_MIC_PRE, i, busCh)
+				const val = i === settingId ? Number(value) : (ipState.get(stateKey) ?? 0)
+				positions.push(val)
+				ipState.set(stateKey, val) // optimistic update
+			}
+			payloadBody.push(busCh & 0xff, ...positions)
+		} else {
+			if (busCh !== undefined) payloadBody.push(busCh & 0xff)
+			if (addLen) payloadBody.push(dataBlock.length)
+			if (dataBlock.length > 0) payloadBody.push(...dataBlock)
+		}
 
 		const crc = StController.crc8DvbS2(payloadBody)
 		const payloadWithCrc = Buffer.from([...payloadBody, crc])
-
-		const totalLen = 24 + payloadWithCrc.length
-		const header = await this.buildHeader(totalLen, destIp)
-		const packet = Buffer.concat([header, payloadWithCrc])
 
 		// Human-readable info log for the outgoing command
 		if (settingId !== undefined && value !== undefined) {
@@ -429,6 +432,21 @@ export class StController {
 		} else {
 			logger.info(`TX ${destIp} | ${getCommandName(cmdId)}`)
 		}
+
+		// Reject commands to unverified devices — log the would-be packet first at debug
+		// so the bytes are visible even when the device is offline.
+		if (!this.authorizedIps.has(destIp)) {
+			logger.debug(`Packet (not sent — device not authorized) to ${destIp}: ${payloadWithCrc.toString('hex')}`)
+			throw new Error(`Device at ${destIp} is not authorized — verify the IP and model match before sending commands`)
+		}
+
+		// Ensure we are listening for replies on the interface that will receive them
+		await this.ensureMembershipFor(destIp)
+
+		const totalLen = 24 + payloadWithCrc.length
+		const header = await this.buildHeader(totalLen, destIp)
+		const packet = Buffer.concat([header, payloadWithCrc])
+
 		logger.debug(`Sending packet to ${destIp}: ${packet.toString('hex')}`)
 
 		const key = `${destIp}:${cmdId}`
