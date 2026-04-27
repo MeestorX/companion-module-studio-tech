@@ -5,23 +5,31 @@
 	"cmdSchema": [
 		{
 			"cmd_id": 2,
-			"id": 22,
+			"id": 0,
 			"busCh": 0,
-			"name": "Microphone Input",
+			"name": "Mic Gain",
 			"options": [
 				{
-					"id": "idAdd",
+					"id": "value",
 					"label": "Gain",
 					"type": "dropdown",
 					"choices": [
-						{ "id": 0, "label": "22 dB" },
-						{ "id": 12, "label": "30 dB" },
-						{ "id": 20, "label": "42 dB" },
-						{ "id": 26, "label": "48 dB" }
+						{ "id": 22, "label": "22dB" },
+						{ "id": 30, "label": "30dB" },
+						{ "id": 42, "label": "42dB" },
+						{ "id": 48, "label": "48dB" }
 					],
-					"default": 0,
-					"tooltip": "Select mic gain"
-				},
+					"default": 22,
+					"tooltip": "Set the microphone preamplifier gain"
+				}
+			]
+		},
+		{
+			"cmd_id": 2,
+			"id": 1,
+			"busCh": 0,
+			"name": "Mic Electret Power",
+			"options": [
 				{
 					"id": "value",
 					"label": "Electret Power (+3.3v)",

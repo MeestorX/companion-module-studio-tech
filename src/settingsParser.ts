@@ -222,6 +222,7 @@ export function parseGetAllSettings_sectioned(buf: Buffer, model: string): Parse
 		}
 
 		const qEnd = q + dataLen
+		const qStart = q
 
 		while (q + 1 < qEnd) {
 			const id = buf[q]
@@ -251,7 +252,9 @@ export function parseGetAllSettings_sectioned(buf: Buffer, model: string): Parse
 		// still contains data bytes, this section likely uses a no-dataLen format where
 		// each byte after cmdId is a raw value at a fixed position (position = id).
 		// Re-parse from p+2 (right after cmdId), treating the "dataLen" byte as id=0.
-		if (qEnd === q && sectionEnd > p + 3) {
+		// Only fire if no bytes were consumed by the main loop (q === qStart), to avoid
+		// re-parsing bytes that were already successfully parsed.
+		if (q === qStart && sectionEnd > p + 3) {
 			let pos = hasBusCh ? p + 3 : p + 2 // skip cmdId (and busCh if present)
 			let posId = 0
 			while (pos < sectionEnd) {
