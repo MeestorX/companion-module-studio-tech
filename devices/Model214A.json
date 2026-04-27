@@ -4,8 +4,8 @@
 	"refreshAfterCommand": true,
 	"cmdSchema": [
 		{
-			"cmd_id": 2,
-			"id": 0,
+			"cmd_id": 18,
+			"id": 1,
 			"busCh": 0,
 			"name": "Mic Gain",
 			"options": [
@@ -37,8 +37,8 @@
 			]
 		},
 		{
-			"cmd_id": 2,
-			"id": 1,
+			"cmd_id": 18,
+			"id": 2,
 			"busCh": 0,
 			"name": "Mic Phantom Power",
 			"options": [
@@ -241,11 +241,12 @@
 					"label": "Mode",
 					"type": "dropdown",
 					"choices": [
-						{ "id": 0, "label": "Main Button" },
-						{ "id": 1, "label": "Talkback Button" },
-						{ "id": 2, "label": "Main & Talkback Button" }
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Main Button" },
+						{ "id": 2, "label": "Talkback Button" },
+						{ "id": 3, "label": "Main & Talkback Button" }
 					],
-					"default": 1,
+					"default": 0,
 					"tooltip": "Set the Relay Output Mode"
 				}
 			]
@@ -260,11 +261,12 @@
 					"label": "Mode",
 					"type": "dropdown",
 					"choices": [
-						{ "id": 0, "label": "Main Button" },
-						{ "id": 1, "label": "Talkback Button" },
-						{ "id": 2, "label": "Main & Talkback Button" }
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Main Button" },
+						{ "id": 2, "label": "Talkback Button" },
+						{ "id": 3, "label": "Main & Talkback Button" }
 					],
-					"default": 1,
+					"default": 0,
 					"tooltip": "Set the Relay Output Mode"
 				}
 			]

@@ -203,10 +203,22 @@ export function parseGetAllSettings_sectioned(buf: Buffer, model: string): Parse
 		if (isRawValue) {
 			// Structure: [cmdLen] [cmdId] [busCh] [val0] [val1] ...
 			// Emit each value byte as a separate ParsedSetting with positional id.
+			// CMD_MIC_PRE (0x02) positional slots are remapped to CMD_MIC_PRE_BUS (0x12)
+			// id:val format so that state keys match the SET command structure used by
+			// feedbacks and actions. Mapping: pos0→id1 (gain), pos1→id2 (phantom/electret),
+			// pos2+ are unknown/unused and dropped.
 			busCh = buf[p + 2]
 			const rawBytes = buf.subarray(p + 3, sectionEnd)
+			const micPreRemap: Array<number | null> = [1, 2] // pos0→id1, pos1→id2, pos2+→drop
 			for (let i = 0; i < rawBytes.length; i++) {
-				out.push({ cmd_id: sectionCmdId, id: i, busCh, valueBytes: [rawBytes[i]] })
+				if (sectionCmdId === CMD_MIC_PRE) {
+					const remappedId = i < micPreRemap.length ? micPreRemap[i] : null
+					if (remappedId !== null) {
+						out.push({ cmd_id: CMD_MIC_PRE_BUS, id: remappedId, busCh, valueBytes: [rawBytes[i]] })
+					}
+				} else {
+					out.push({ cmd_id: sectionCmdId, id: i, busCh, valueBytes: [rawBytes[i]] })
+				}
 			}
 			p = sectionEnd
 			continue

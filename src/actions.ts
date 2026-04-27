@@ -100,7 +100,7 @@ export function UpdateActions(self: ModuleInstance): void {
 	// ---------------------------------------------
 	const activeSchema = schemas[activeModel]
 	if (activeSchema) {
-		const supportsMicKill = (activeSchema.cmdSchema ?? []).some((a: any) => a.name.includes('Mic'))
+		const supportsMicKill = (activeSchema.cmdSchema ?? []).some((a: any) => a.name.includes('Kill'))
 
 		if (supportsMicKill) {
 			const actionId = `${activeModel}_micKill`

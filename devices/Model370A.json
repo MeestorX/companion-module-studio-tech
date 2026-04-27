@@ -4,8 +4,8 @@
 	"refreshAfterCommand": true,
 	"cmdSchema": [
 		{
-			"cmd_id": 2,
-			"id": 0,
+			"cmd_id": 18,
+			"id": 1,
 			"busCh": 0,
 			"name": "Mic Gain",
 			"options": [
@@ -25,8 +25,8 @@
 			]
 		},
 		{
-			"cmd_id": 2,
-			"id": 1,
+			"cmd_id": 18,
+			"id": 2,
 			"busCh": 0,
 			"name": "Mic Electret Power",
 			"options": [
@@ -117,9 +117,9 @@
 					"type": "dropdown",
 					"choices": [
 						{ "id": 1, "label": "Push to Talk" },
-						{ "id": 3, "label": "Push to Talk / Tap to Latch" },
-						{ "id": 5, "label": "Talk Disabled" },
-						{ "id": 6, "label": "Talk Disabled / Phones Tap to Latch" }
+						{ "id": 2, "label": "Latching" },
+						{ "id": 3, "label": "Psh to Talk / Tap to Latch" },
+						{ "id": 4, "label": "Disabled" }
 					],
 					"default": 1,
 					"tooltip": "Set the function for the selected button"
