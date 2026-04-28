@@ -606,8 +606,17 @@ export class StController {
 						logger.info(`RX ${srcIp} | ${formatted}`)
 						// Trigger feedback update — use base key without busCh so it matches the feedback definition ID
 						if (this.feedbackCallback) {
-							const baseFeedbackKey = makeSettingId(this.model, s.cmd_id, s.id)
-							//logger.debug(`Triggering feedback update for key: ${baseFeedbackKey}`)
+							let baseId = s.id
+							const baseAction = this.actions.find((a) => {
+								if (a.cmd_id !== s.cmd_id) return false
+								if (a.id === s.id) return true
+								const idAddOption = a.options?.find((o) => o.id === 'idAdd')
+								if (!idAddOption?.choices) return false
+								const offset = s.id - a.id
+								return offset > 0 && idAddOption.choices.some((c) => c.id === offset)
+							})
+							if (baseAction) baseId = baseAction.id
+							const baseFeedbackKey = makeSettingId(this.model, s.cmd_id, baseId)
 							this.feedbackCallback(baseFeedbackKey)
 						} else {
 							logger.warn(`feedbackCallback not set — skipping feedback update for ${stateKey}`)

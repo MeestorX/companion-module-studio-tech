@@ -56,7 +56,7 @@
 						{ "id": 0, "label": "Channel 1" },
 						{ "id": 1, "label": "Channel 2" }
 					],
-					"default": 1,
+					"default": 0,
 					"tooltip": "Select the phones channel"
 				},
 				{
