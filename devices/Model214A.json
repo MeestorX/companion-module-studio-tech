@@ -14,22 +14,22 @@
 					"label": "Gain",
 					"type": "dropdown",
 					"choices": [
-						{ "id": 64, "label": "64dB" },
-						{ "id": 61, "label": "61dB" },
-						{ "id": 58, "label": "58dB" },
-						{ "id": 55, "label": "55dB" },
-						{ "id": 52, "label": "52dB" },
-						{ "id": 49, "label": "49dB" },
-						{ "id": 46, "label": "46dB" },
-						{ "id": 43, "label": "43dB" },
-						{ "id": 40, "label": "40dB" },
-						{ "id": 37, "label": "37dB" },
-						{ "id": 34, "label": "34dB" },
-						{ "id": 31, "label": "31dB" },
-						{ "id": 28, "label": "28dB" },
-						{ "id": 25, "label": "25dB" },
-						{ "id": 22, "label": "22dB" },
-						{ "id": 19, "label": "19dB" }
+						{ "id": 64, "label": "64 dB" },
+						{ "id": 61, "label": "61 dB" },
+						{ "id": 58, "label": "58 dB" },
+						{ "id": 55, "label": "55 dB" },
+						{ "id": 52, "label": "52 dB" },
+						{ "id": 49, "label": "49 dB" },
+						{ "id": 46, "label": "46 dB" },
+						{ "id": 43, "label": "43 dB" },
+						{ "id": 40, "label": "40 dB" },
+						{ "id": 37, "label": "37 dB" },
+						{ "id": 34, "label": "34 dB" },
+						{ "id": 31, "label": "31 dB" },
+						{ "id": 28, "label": "28 dB" },
+						{ "id": 25, "label": "25 dB" },
+						{ "id": 22, "label": "22 dB" },
+						{ "id": 19, "label": "19 dB" }
 					],
 					"default": 40,
 					"tooltip": "Set the microphone preamplifier gain"
@@ -244,7 +244,7 @@
 						{ "id": 0, "label": "Off" },
 						{ "id": 1, "label": "Main Button" },
 						{ "id": 2, "label": "Talkback Button" },
-						{ "id": 3, "label": "Main & Talkback Button" }
+						{ "id": 10, "label": "Main & Talkback Button" }
 					],
 					"default": 0,
 					"tooltip": "Set the Relay Output Mode"
@@ -264,7 +264,7 @@
 						{ "id": 0, "label": "Off" },
 						{ "id": 1, "label": "Main Button" },
 						{ "id": 2, "label": "Talkback Button" },
-						{ "id": 3, "label": "Main & Talkback Button" }
+						{ "id": 10, "label": "Main & Talkback Button" }
 					],
 					"default": 0,
 					"tooltip": "Set the Relay Output Mode"

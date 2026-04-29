@@ -5,36 +5,19 @@
 	"cmdSchema": [
 		{
 			"cmd_id": 18,
-			"id": 13,
-			"busCh": 0,
-			"name": "Mic Gain (inferred from Model 5304)",
+			"id": 0,
+			"name": "Microphone Source",
 			"options": [
 				{
 					"id": "value",
-					"label": "Gain",
+					"label": "Source",
 					"type": "dropdown",
 					"choices": [
-						{ "id": 48, "label": "48dB" },
-						{ "id": 42, "label": "42dB" },
-						{ "id": 36, "label": "36dB" },
-						{ "id": 30, "label": "30dB" },
-						{ "id": 24, "label": "24dB" }
+						{ "id": 0, "label": "Headset" },
+						{ "id": 1, "label": "Gooseneck" },
+						{ "id": 2, "label": "Dante Aux In" }
 					],
-					"default": 44,
-					"tooltip": "Set the microphone preamplifier gain"
-				}
-			]
-		},
-		{
-			"cmd_id": 18,
-			"id": 19,
-			"name": "Unknown Setting 0X13",
-			"options": [
-				{
-					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 24
+					"default": 0
 				}
 			]
 		},
@@ -42,7 +25,7 @@
 			"cmd_id": 18,
 			"id": 14,
 			"busCh": 0,
-			"name": "Mic Electret Power (inferred from Model 5304)",
+			"name": "Mic Electret Power",
 			"options": [
 				{
 					"id": "value",
@@ -59,17 +42,49 @@
 		},
 		{
 			"cmd_id": 18,
-			"id": 0,
-			"name": "Unknown Setting 0X00",
+			"id": 13,
+			"busCh": 0,
+			"name": "Headset Mic Gain",
 			"options": [
 				{
 					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 2
+					"label": "Gain",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 50, "label": "50 dB" },
+						{ "id": 44, "label": "44 dB" },
+						{ "id": 38, "label": "38 dB" },
+						{ "id": 32, "label": "32 dB" },
+						{ "id": 26, "label": "26 dB" }
+					],
+					"default": 44,
+					"tooltip": "Set the Headset microphone preamplifier gain"
 				}
 			]
 		},
+		{
+			"cmd_id": 18,
+			"id": 19,
+			"name": "Gooseneck Mic Gain",
+			"options": [
+				{
+					"id": "value",
+					"label": "Gain",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 42, "label": "42 dB" },
+						{ "id": 36, "label": "36 dB" },
+						{ "id": 30, "label": "30 dB" },
+						{ "id": 24, "label": "24 dB" },
+						{ "id": 18, "label": "18 dB" },
+						{ "id": 12, "label": "12 dB" }
+					],
+					"default": 24,
+					"tooltip": "Set the Goosneck microphone preamplifier gain"
+				}
+			]
+		},
+
 		{
 			"cmd_id": 18,
 			"id": 37,
@@ -112,7 +127,7 @@
 		{
 			"cmd_id": 5,
 			"id": 21,
-			"name": "Sidetone Level (inferred from Model 374A)",
+			"name": "Sidetone Level",
 			"options": [
 				{
 					"id": "value",
@@ -134,18 +149,16 @@
 		{
 			"cmd_id": 5,
 			"id": 25,
-			"name": "Headset Channel Solo (inferred from Model 5304)",
+			"name": "Headset Dim",
 			"options": [
 				{
 					"id": "value",
 					"type": "dropdown",
 					"choices": [
-						{ "id": 254, "label": "Off" },
+						{ "id": 0, "label": "0 dB" },
 						{ "id": 6, "label": "6 dB" },
-						{ "id": 9, "label": "9 dB" },
 						{ "id": 12, "label": "12 dB" },
-						{ "id": 15, "label": "15 dB" },
-						{ "id": 255, "label": "Full Mute" }
+						{ "id": 18, "label": "18 dB" }
 					],
 					"default": 6,
 					"tooltip": "Headset Channel Solo Level"

@@ -14,11 +14,11 @@
 					"label": "Gain",
 					"type": "dropdown",
 					"choices": [
-						{ "id": 48, "label": "48dB" },
-						{ "id": 42, "label": "42dB" },
-						{ "id": 36, "label": "36dB" },
-						{ "id": 30, "label": "30dB" },
-						{ "id": 24, "label": "24dB" }
+						{ "id": 48, "label": "48 dB" },
+						{ "id": 42, "label": "42 dB" },
+						{ "id": 36, "label": "36 dB" },
+						{ "id": 30, "label": "30 dB" },
+						{ "id": 24, "label": "24 dB" }
 					],
 					"default": 30,
 					"tooltip": "Set the microphone preamplifier gain"

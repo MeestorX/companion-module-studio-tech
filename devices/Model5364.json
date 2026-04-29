@@ -97,11 +97,11 @@
 					"label": "Gain",
 					"type": "dropdown",
 					"choices": [
-						{ "id": 18, "label": "18dB" },
-						{ "id": 24, "label": "24dB" },
-						{ "id": 30, "label": "30dB" },
-						{ "id": 36, "label": "36dB" },
-						{ "id": 42, "label": "42dB" }
+						{ "id": 18, "label": "18 dB" },
+						{ "id": 24, "label": "24 dB" },
+						{ "id": 30, "label": "30 dB" },
+						{ "id": 36, "label": "36 dB" },
+						{ "id": 42, "label": "42 dB" }
 					],
 					"default": 18,
 					"tooltip": "Set headset gain"

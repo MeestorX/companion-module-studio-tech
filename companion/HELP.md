@@ -1,6 +1,6 @@
 ## Companion Module for Studio Technologies Dante Devices
 
-v0.5.10
+v0.5.11
 
 Supported Devices so far:
 

@@ -23,12 +23,12 @@
 					"label": "Gain",
 					"type": "dropdown",
 					"choices": [
-						{ "id": 0, "label": "0dB" },
-						{ "id": 20, "label": "20dB" },
-						{ "id": 30, "label": "30dB" },
-						{ "id": 40, "label": "40dB" },
-						{ "id": 50, "label": "50dB" },
-						{ "id": 60, "label": "60dB" }
+						{ "id": 0, "label": "0 dB" },
+						{ "id": 20, "label": "20 dB" },
+						{ "id": 30, "label": "30 dB" },
+						{ "id": 40, "label": "40 dB" },
+						{ "id": 50, "label": "50 dB" },
+						{ "id": 60, "label": "60 dB" }
 					],
 					"default": 0,
 					"tooltip": "Set the microphone preamplifier gain for the selected channel"
