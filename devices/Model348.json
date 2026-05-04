@@ -13,30 +13,12 @@
 					"label": "Source",
 					"type": "dropdown",
 					"choices": [
-						{ "id": 0, "label": "Headset" },
-						{ "id": 1, "label": "Gooseneck" },
-						{ "id": 2, "label": "Dante Aux In" }
+						{ "id": 2, "label": "Headset" },
+						{ "id": 3, "label": "Gooseneck" },
+						{ "id": 4, "label": "Dante Aux In" }
 					],
-					"default": 0
-				}
-			]
-		},
-		{
-			"cmd_id": 18,
-			"id": 14,
-			"busCh": 0,
-			"name": "Mic Electret Power",
-			"options": [
-				{
-					"id": "value",
-					"label": "Electret Power (+3.3v)",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Off" },
-						{ "id": 5, "label": "On" }
-					],
-					"default": 0,
-					"tooltip": "Enable or disable electret microphone power"
+					"default": 2,
+					"tooltip": "Set the microphone input source"
 				}
 			]
 		},
@@ -64,6 +46,25 @@
 		},
 		{
 			"cmd_id": 18,
+			"id": 14,
+			"busCh": 0,
+			"name": "Mic Electret Power",
+			"options": [
+				{
+					"id": "value",
+					"label": "Electret Power (+3.3v)",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 5, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Enable or disable electret microphone power"
+				}
+			]
+		},
+		{
+			"cmd_id": 18,
 			"id": 19,
 			"name": "Gooseneck Mic Gain",
 			"options": [
@@ -80,41 +81,53 @@
 						{ "id": 12, "label": "12 dB" }
 					],
 					"default": 24,
-					"tooltip": "Set the Goosneck microphone preamplifier gain"
-				}
-			]
-		},
-
-		{
-			"cmd_id": 18,
-			"id": 37,
-			"name": "Unknown Setting 0X25",
-			"options": [
-				{
-					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 255
+					"tooltip": "Set the Gooseneck microphone preamplifier gain"
 				}
 			]
 		},
 		{
 			"cmd_id": 18,
 			"id": 25,
-			"name": "Unknown Setting 0X19",
+			"name": "Dante Aux In Trim",
 			"options": [
 				{
 					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 255
+					"label": "Trim",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 12, "label": "+12 dB" },
+						{ "id": 6, "label": "+6 dB" },
+						{ "id": 0, "label": "0 dB" },
+						{ "id": 250, "label": "-6 dB" },
+						{ "id": 244, "label": "-12 dB" }
+					],
+					"default": 0,
+					"tooltip": "Set the Dante Aux In input trim level"
 				}
 			]
 		},
 		{
 			"cmd_id": 18,
 			"id": 28,
-			"name": "Unknown Setting 0X1C",
+			"name": "Dante Aux In as Mic In Source",
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Disabled" },
+						{ "id": 1, "label": "Enabled" }
+					],
+					"default": 0,
+					"tooltip": "Enable or disable Dante Aux In as a microphone input source"
+				}
+			]
+		},
+		{
+			"cmd_id": 18,
+			"id": 37,
+			"name": "Unknown Setting 0X25",
 			"options": [
 				{
 					"id": "value",
@@ -153,6 +166,7 @@
 			"options": [
 				{
 					"id": "value",
+					"label": "Dim",
 					"type": "dropdown",
 					"choices": [
 						{ "id": 0, "label": "0 dB" },
@@ -160,69 +174,25 @@
 						{ "id": 12, "label": "12 dB" },
 						{ "id": 18, "label": "18 dB" }
 					],
-					"default": 6,
-					"tooltip": "Headset Channel Solo Level"
-				}
-			]
-		},
-		{
-			"cmd_id": 9,
-			"id": 6,
-			"name": "Unknown Setting 0X06",
-			"options": [
-				{
-					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 1
-				}
-			]
-		},
-		{
-			"cmd_id": 9,
-			"id": 7,
-			"name": "Unknown Setting 0X07",
-			"options": [
-				{
-					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 12
-				}
-			]
-		},
-		{
-			"cmd_id": 9,
-			"id": 4,
-			"name": "LED Intensity (inferred from Model 5304)",
-			"options": [
-				{
-					"id": "value",
-					"label": "Intensity",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 1, "label": "High" },
-						{ "id": 0, "label": "Low" }
-					],
-					"default": 2,
-					"tooltip": "LED Intensity"
+					"default": 0,
+					"tooltip": "Set the headset output dim level"
 				}
 			]
 		},
 		{
 			"cmd_id": 9,
 			"id": 2,
-			"name": "Remote Control In (inferred from Model 374A)",
+			"name": "Remote Control Input",
 			"options": [
 				{
 					"id": "idAdd",
-					"label": "Remote Input",
+					"label": "Input",
 					"type": "dropdown",
 					"choices": [
 						{ "id": 0, "label": "Remote In 1" },
 						{ "id": 1, "label": "Remote In 2" }
 					],
-					"default": 255,
+					"default": 0,
 					"tooltip": "Select the remote control input"
 				},
 				{
@@ -234,7 +204,11 @@
 						{ "id": 11, "label": "Channel 1" },
 						{ "id": 12, "label": "Channel 2" },
 						{ "id": 13, "label": "Channel 3" },
-						{ "id": 14, "label": "Channel 4" }
+						{ "id": 14, "label": "Channel 4" },
+						{ "id": 15, "label": "Channel 5" },
+						{ "id": 16, "label": "Channel 6" },
+						{ "id": 17, "label": "Channel 7" },
+						{ "id": 18, "label": "Channel 8" }
 					],
 					"default": 0,
 					"tooltip": "Set the function for the selected remote control input"
@@ -243,397 +217,471 @@
 		},
 		{
 			"cmd_id": 9,
-			"id": 3,
-			"name": "Unknown Setting 0X03",
-			"options": [
-				{
-					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 255
-				}
-			]
-		},
-		{
-			"cmd_id": 20,
-			"id": 0,
-			"name": "Button Mode (inferred from Model 5304)",
-			"options": [
-				{
-					"id": "busCh",
-					"label": "Channel",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Channel 1" },
-						{ "id": 1, "label": "Channel 2" },
-						{ "id": 2, "label": "Channel 3" },
-						{ "id": 3, "label": "Channel 4" }
-					],
-					"default": 3,
-					"tooltip": "Select the button channel"
-				},
-				{
-					"id": "value",
-					"label": "Function",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 1, "label": "Push to Talk" },
-						{ "id": 2, "label": "Tap to Latch" },
-						{ "id": 3, "label": "Push to Talk / Tap to Latch" },
-						{ "id": 4, "label": "Disabled" }
-					],
-					"default": 1,
-					"tooltip": "Set the function for the selected button"
-				}
-			]
-		},
-		{
-			"cmd_id": 20,
-			"id": 1,
-			"name": "Phones Routing (inferred from Model 5304)",
-			"options": [
-				{
-					"id": "busCh",
-					"label": "Channel",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Channel 1" },
-						{ "id": 1, "label": "Channel 2" },
-						{ "id": 2, "label": "Channel 3" },
-						{ "id": 3, "label": "Channel 4" }
-					],
-					"default": 3,
-					"tooltip": "Select the phones channel"
-				},
-				{
-					"id": "value",
-					"label": "Routing",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 1, "label": "Left" },
-						{ "id": 2, "label": "Right" },
-						{ "id": 3, "label": "Left and Right" }
-					],
-					"default": 3,
-					"tooltip": "Set the routing for the selected phones channel"
-				}
-			]
-		},
-		{
-			"cmd_id": 20,
-			"id": 2,
-			"name": "Unknown Setting 0X02",
-			"options": [
-				{
-					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 1
-				}
-			]
-		},
-		{
-			"cmd_id": 20,
-			"id": 3,
-			"name": "Button Function (inferred from Model 5304)",
-			"options": [
-				{
-					"id": "busCh",
-					"label": "Channel",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Channel 1" },
-						{ "id": 1, "label": "Channel 2" },
-						{ "id": 2, "label": "Channel 3" },
-						{ "id": 3, "label": "Channel 4" }
-					],
-					"default": 3,
-					"tooltip": "Select the button channel"
-				},
-				{
-					"id": "value",
-					"label": "Routing",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Talk" },
-						{ "id": 1, "label": "Talk with 18 khz Tone" }
-					],
-					"default": 0,
-					"tooltip": "Set the Talk mode for the selected channel"
-				}
-			]
-		},
-		{
-			"cmd_id": 20,
 			"id": 4,
-			"name": "Unknown Setting 0X04",
+			"name": "LED Intensity",
 			"options": [
-				{
-					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 15
-				}
-			]
-		},
-		{
-			"cmd_id": 20,
-			"id": 5,
-			"name": "Call Indication (inferred from Model 5304)",
-			"options": [
-				{
-					"id": "busCh",
-					"label": "Channel",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Channel 1" },
-						{ "id": 1, "label": "Channel 2" },
-						{ "id": 2, "label": "Channel 3" },
-						{ "id": 3, "label": "Channel 4" }
-					],
-					"default": 1,
-					"tooltip": "Select the button channel"
-				},
-				{
-					"id": "value",
-					"label": "Function",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Off" },
-						{ "id": 4, "label": "Flash" },
-						{ "id": 1, "label": "Solid" },
-						{ "id": 9, "label": "Flash then Solid" }
-					],
-					"default": 9,
-					"tooltip": "Set the Call Style for the selected button"
-				}
-			]
-		},
-		{
-			"cmd_id": 20,
-			"id": 6,
-			"name": "Unknown Setting 0X06",
-			"options": [
-				{
-					"id": "value",
-					"label": "Value",
-					"type": "number",
-					"default": 255
-				}
-			]
-		},
-		{
-			"cmd_id": 13,
-			"id": 0,
-			"name": "Active Mode (inferred from Model 391)",
-			"options": [
-				{
-					"id": "value",
-					"label": "Mode",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 1, "label": "Mode 1" },
-						{ "id": 2, "label": "Mode 2" }
-					],
-					"default": 1,
-					"tooltip": "Set the Active Mode"
-				}
-			]
-		},
-		{
-			"cmd_id": 13,
-			"id": 1,
-			"name": "Dante Output Channel 2 State (inferred from Model 5365)",
-			"options": [
-				{
-					"id": "value",
-					"label": "Output 2 State",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Off" },
-						{ "id": 1, "label": "On" },
-						{ "id": 2, "label": "Toggle" }
-					],
-					"default": 1,
-					"tooltip": "Set the Dante Output Channel 2 state"
-				}
-			]
-		},
-		{
-			"cmd_id": 13,
-			"id": 2,
-			"name": "Control Source (inferred from Model 391)",
-			"options": [
-				{
-					"id": "idAdd",
-					"label": "Mode",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Mode 1" },
-						{ "id": 11, "label": "Mode 2" }
-					],
-					"default": 0,
-					"tooltip": "Select the Mode to change"
-				},
-				{
-					"id": "value",
-					"label": "Call",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 1, "label": "20khz Tone Detect - Ch1" },
-						{ "id": 2, "label": "20khz Tone Detect - Ch2" },
-						{ "id": 3, "label": "20khz Tone Detect - Ch1 & Ch2" },
-						{ "id": 4, "label": "UDP Commands" }
-					],
-					"default": 4,
-					"tooltip": "Select the Call Control Source"
-				}
-			]
-		},
-		{
-			"cmd_id": 13,
-			"id": 4,
-			"name": "Light Color (inferred from Model 391)",
-			"options": [
-				{
-					"id": "idAdd",
-					"label": "Mode",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Mode 1" },
-						{ "id": 11, "label": "Mode 2" }
-					],
-					"default": 0,
-					"tooltip": "Select the Mode to change"
-				},
-				{
-					"id": "value",
-					"label": "Color",
-					"type": "colorpicker",
-					"default": 0,
-					"tooltip": "Set RGB color for Light Color"
-				}
-			]
-		},
-		{
-			"cmd_id": 13,
-			"id": 3,
-			"name": "Visual Status (inferred from Model 391)",
-			"options": [
-				{
-					"id": "idAdd",
-					"label": "Mode",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Mode 1" },
-						{ "id": 11, "label": "Mode 2" }
-					],
-					"default": 0,
-					"tooltip": "Select the Mode to change"
-				},
-				{
-					"id": "value",
-					"label": "Status",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Off" },
-						{ "id": 1, "label": "On when Call Active" },
-						{ "id": 2, "label": "Always On" }
-					],
-					"default": 1,
-					"tooltip": "Set the Visual Indicator Status"
-				}
-			]
-		},
-		{
-			"cmd_id": 13,
-			"id": 5,
-			"name": "Intensity (inferred from Model 391)",
-			"options": [
-				{
-					"id": "idAdd",
-					"label": "Mode",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Mode 1" },
-						{ "id": 11, "label": "Mode 2" }
-					],
-					"default": 0,
-					"tooltip": "Select the Mode to change"
-				},
 				{
 					"id": "value",
 					"label": "Intensity",
 					"type": "dropdown",
 					"choices": [
-						{ "id": 0, "label": "Low" },
-						{ "id": 1, "label": "Medium" },
-						{ "id": 2, "label": "High" }
+						{ "id": 1, "label": "High" },
+						{ "id": 0, "label": "Low" }
+					],
+					"default": 1,
+					"tooltip": "Set LED intensity"
+				}
+			]
+		},
+		{
+			"cmd_id": 9,
+			"id": 6,
+			"name": "Speaker Source",
+			"options": [
+				{
+					"id": "value",
+					"label": "Source",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Monitor A" },
+						{ "id": 2, "label": "Monitor B" }
 					],
 					"default": 0,
-					"tooltip": "Set the Intensity Level"
+					"tooltip": "Set the speaker output source"
+				}
+			]
+		},
+		{
+			"cmd_id": 9,
+			"id": 7,
+			"name": "Speaker Dim",
+			"options": [
+				{
+					"id": "value",
+					"label": "Dim",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "0 dB" },
+						{ "id": 6, "label": "6 dB" },
+						{ "id": 12, "label": "12 dB" },
+						{ "id": 18, "label": "18 dB" }
+					],
+					"default": 0,
+					"tooltip": "Set the speaker output dim level"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 0,
+			"name": "Button Mode",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" },
+						{ "id": 4, "label": "Channel 5" },
+						{ "id": 5, "label": "Channel 6" },
+						{ "id": 6, "label": "Channel 7" },
+						{ "id": 7, "label": "Channel 8" }
+					],
+					"default": 0,
+					"tooltip": "Select the channel"
+				},
+				{
+					"id": "value",
+					"label": "Mode",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 1, "label": "Momentary" },
+						{ "id": 2, "label": "Latching" },
+						{ "id": 3, "label": "Hybrid" }
+					],
+					"default": 1,
+					"tooltip": "Set the button mode for the selected channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 1,
+			"name": "Headset Routing",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" },
+						{ "id": 4, "label": "Channel 5" },
+						{ "id": 5, "label": "Channel 6" },
+						{ "id": 6, "label": "Channel 7" },
+						{ "id": 7, "label": "Channel 8" }
+					],
+					"default": 0,
+					"tooltip": "Select the channel"
+				},
+				{
+					"id": "value",
+					"label": "Routing",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Left" },
+						{ "id": 2, "label": "Right" },
+						{ "id": 3, "label": "Left and Right" }
+					],
+					"default": 3,
+					"tooltip": "Set the headset routing for the selected channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 2,
+			"name": "Monitor Routing",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" },
+						{ "id": 4, "label": "Channel 5" },
+						{ "id": 5, "label": "Channel 6" },
+						{ "id": 6, "label": "Channel 7" },
+						{ "id": 7, "label": "Channel 8" }
+					],
+					"default": 0,
+					"tooltip": "Select the channel"
+				},
+				{
+					"id": "value",
+					"label": "Routing",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Monitor A" },
+						{ "id": 2, "label": "Monitor B" },
+						{ "id": 3, "label": "Monitor A and B" }
+					],
+					"default": 0,
+					"tooltip": "Set the monitor routing for the selected channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 3,
+			"name": "Button Function",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" },
+						{ "id": 4, "label": "Channel 5" },
+						{ "id": 5, "label": "Channel 6" },
+						{ "id": 6, "label": "Channel 7" },
+						{ "id": 7, "label": "Channel 8" }
+					],
+					"default": 0,
+					"tooltip": "Select the channel"
+				},
+				{
+					"id": "value",
+					"label": "Function",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Talk" },
+						{ "id": 1, "label": "Talk with 18 kHz Tone" },
+						{ "id": 2, "label": "IFB" },
+						{ "id": 3, "label": "Disabled" },
+						{ "id": 4, "label": "Call" },
+						{ "id": 5, "label": "All IFB" },
+						{ "id": 6, "label": "All Talk" },
+						{ "id": 7, "label": "18 kHz Tone" },
+						{ "id": 8, "label": "20 kHz Tone" },
+						{ "id": 10, "label": "Talk with Quindar Tone" }
+					],
+					"default": 0,
+					"tooltip": "Set the button function for the selected channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 4,
+			"name": "IFB Program Dim",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" },
+						{ "id": 4, "label": "Channel 5" },
+						{ "id": 5, "label": "Channel 6" },
+						{ "id": 6, "label": "Channel 7" },
+						{ "id": 7, "label": "Channel 8" }
+					],
+					"default": 0,
+					"tooltip": "Select the channel"
+				},
+				{
+					"id": "value",
+					"label": "Dim",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "0 dB" },
+						{ "id": 5, "label": "5 dB" },
+						{ "id": 10, "label": "10 dB" },
+						{ "id": 15, "label": "15 dB" },
+						{ "id": 20, "label": "20 dB" },
+						{ "id": 255, "label": "Full Mute" }
+					],
+					"default": 0,
+					"tooltip": "Set the IFB program dim level for the selected channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 5,
+			"name": "Call Indication",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" },
+						{ "id": 4, "label": "Channel 5" },
+						{ "id": 5, "label": "Channel 6" },
+						{ "id": 6, "label": "Channel 7" },
+						{ "id": 7, "label": "Channel 8" }
+					],
+					"default": 0,
+					"tooltip": "Select the channel"
+				},
+				{
+					"id": "value",
+					"label": "Indication",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Visual Only" },
+						{ "id": 2, "label": "Visual and Audible" }
+					],
+					"default": 0,
+					"tooltip": "Set the call indication style for the selected channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 20,
+			"id": 6,
+			"name": "Listen Mode",
+			"options": [
+				{
+					"id": "busCh",
+					"label": "Channel",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Channel 1" },
+						{ "id": 1, "label": "Channel 2" },
+						{ "id": 2, "label": "Channel 3" },
+						{ "id": 3, "label": "Channel 4" },
+						{ "id": 4, "label": "Channel 5" },
+						{ "id": 5, "label": "Channel 6" },
+						{ "id": 6, "label": "Channel 7" },
+						{ "id": 7, "label": "Channel 8" }
+					],
+					"default": 0,
+					"tooltip": "Select the channel"
+				},
+				{
+					"id": "value",
+					"label": "Mode",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 1, "label": "Always" },
+						{ "id": 4, "label": "Channel 1 Active" }
+					],
+					"default": 1,
+					"tooltip": "Set the listen mode for the selected channel"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 0,
+			"name": "Level Control Position Display",
+			"options": [
+				{
+					"id": "value",
+					"label": "Display",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" }
+					],
+					"default": 1,
+					"tooltip": "Enable or disable level control position display"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 1,
+			"name": "Signal Present Display",
+			"options": [
+				{
+					"id": "value",
+					"label": "Display",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" }
+					],
+					"default": 1,
+					"tooltip": "Enable or disable signal present display"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 2,
+			"name": "Dante Monitor Outputs Mode",
+			"options": [
+				{
+					"id": "value",
+					"label": "Mode",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 1, "label": "Pre-Fader" },
+						{ "id": 2, "label": "Post-Fader" }
+					],
+					"default": 1,
+					"tooltip": "Set the Dante monitor outputs mode"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 3,
+			"name": "Headset and Monitor Outputs Follow Mic Source",
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Enable or disable headset and monitor outputs following mic source"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 4,
+			"name": "Dante Monitor Dim",
+			"options": [
+				{
+					"id": "value",
+					"label": "Dim",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "0 dB" },
+						{ "id": 6, "label": "6 dB" },
+						{ "id": 12, "label": "12 dB" },
+						{ "id": 18, "label": "18 dB" }
+					],
+					"default": 0,
+					"tooltip": "Set the Dante monitor output dim level"
+				}
+			]
+		},
+		{
+			"cmd_id": 13,
+			"id": 5,
+			"name": "Hot Mic",
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Enable or disable Hot Mic"
 				}
 			]
 		},
 		{
 			"cmd_id": 13,
 			"id": 6,
-			"name": "Minimum On Time (inferred from Model 391)",
+			"name": "Monitor A Call Tone Level",
 			"options": [
 				{
-					"id": "idAdd",
-					"label": "Mode",
+					"id": "value",
+					"label": "Level",
 					"type": "dropdown",
 					"choices": [
-						{ "id": 0, "label": "Mode 1" },
-						{ "id": 11, "label": "Mode 2" }
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Low" },
+						{ "id": 2, "label": "Medium" },
+						{ "id": 3, "label": "High" }
 					],
 					"default": 0,
-					"tooltip": "Select the Mode to change"
-				},
-				{
-					"id": "value",
-					"label": "Minimum On",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Follow Call" },
-						{ "id": 2, "label": "2 Seconds" },
-						{ "id": 4, "label": "4 Seconds" },
-						{ "id": 6, "label": "6 Seconds" }
-					],
-					"default": 6,
-					"tooltip": "Set the minimum On time for the Indicator"
+					"tooltip": "Set the Monitor A call tone level"
 				}
 			]
 		},
 		{
 			"cmd_id": 13,
 			"id": 7,
-			"name": "Flash Action (inferred from Model 391)",
+			"name": "Monitor B Call Tone Level",
 			"options": [
 				{
-					"id": "idAdd",
-					"label": "Mode",
+					"id": "value",
+					"label": "Level",
 					"type": "dropdown",
 					"choices": [
-						{ "id": 0, "label": "Mode 1" },
-						{ "id": 11, "label": "Mode 2" }
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "Low" },
+						{ "id": 2, "label": "Medium" },
+						{ "id": 3, "label": "High" }
 					],
 					"default": 0,
-					"tooltip": "Select the Mode to change"
-				},
-				{
-					"id": "value",
-					"label": "Action",
-					"type": "dropdown",
-					"choices": [
-						{ "id": 0, "label": "Continuous" },
-						{ "id": 1, "label": "Slow Flash" },
-						{ "id": 2, "label": "Fast Flash" },
-						{ "id": 3, "label": "Pulse" }
-					],
-					"default": 3,
-					"tooltip": "Set the Flash Type"
+					"tooltip": "Set the Monitor B call tone level"
 				}
 			]
 		}

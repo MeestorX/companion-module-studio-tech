@@ -1,6 +1,8 @@
 ## Companion Module for Studio Technologies Dante Devices
 
-v0.5.11
+v0.6.0
+
+Added "read-only" property for devices like the 545DC that have indicators.
 
 Supported Devices so far:
 
@@ -9,11 +11,13 @@ Model 207
 Model 209  
 Model 214  
 Model 214A  
+Model 348
 Model 370A  
 Model 373A  
 Model 374A  
 Model 391  
 Model 392  
+Model 545DC  
 Model 5205  
 Model 5304  
 Model 5364  

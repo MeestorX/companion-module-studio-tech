@@ -1,0 +1,191 @@
+{
+	"model": "545DC",
+	"sectioned": true,
+	"refreshAfterCommand": true,
+	"cmdSchema": [
+		{
+			"cmd_id": 9,
+			"id": 40,
+			"name": "System — Call Light Support",
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Enable or disable Call Light Support"
+				}
+			]
+		},
+		{
+			"cmd_id": 9,
+			"id": 41,
+			"name": "System — PL Active Detection",
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Enable or disable Party-Line Active Detection"
+				}
+			]
+		},
+		{
+			"cmd_id": 9,
+			"id": 43,
+			"name": "PL Ch A — Local Power",
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Enable or disable local power for Party-Line Channel A"
+				}
+			]
+		},
+		{
+			"cmd_id": 9,
+			"id": 44,
+			"name": "PL Ch B — Local Power",
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Enable or disable local power for Party-Line Channel B"
+				}
+			]
+		},
+		{
+			"cmd_id": 9,
+			"id": 45,
+			"name": "PL Ch A — Auto Null",
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Trigger Auto Null for Party-Line Channel A"
+				}
+			]
+		},
+		{
+			"cmd_id": 9,
+			"id": 46,
+			"name": "PL Ch B — Auto Null",
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Trigger Auto Null for Party-Line Channel B"
+				}
+			]
+		},
+		{
+			"cmd_id": 30,
+			"id": 8,
+			"readonly": true,
+			"name": "Indicator — PL Ch A Active",
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" }
+					],
+					"default": 1,
+					"tooltip": "Read-only: Party-Line Channel A active status"
+				}
+			]
+		},
+		{
+			"cmd_id": 30,
+			"id": 9,
+			"readonly": true,
+			"name": "Indicator — PL Ch B Active",
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" }
+					],
+					"default": 1,
+					"tooltip": "Read-only: Party-Line Channel B active status"
+				}
+			]
+		},
+		{
+			"cmd_id": 30,
+			"id": 10,
+			"readonly": true,
+			"name": "Indicator — PL Ch A Pin 3",
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Read-only: Party-Line Channel A Pin 3 status"
+				}
+			]
+		},
+		{
+			"cmd_id": 30,
+			"id": 11,
+			"readonly": true,
+			"name": "Indicator — PL Ch B Pin 3",
+			"options": [
+				{
+					"id": "value",
+					"label": "State",
+					"type": "dropdown",
+					"choices": [
+						{ "id": 0, "label": "Off" },
+						{ "id": 1, "label": "On" }
+					],
+					"default": 0,
+					"tooltip": "Read-only: Party-Line Channel B Pin 3 status"
+				}
+			]
+		}
+	]
+}

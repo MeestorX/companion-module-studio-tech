@@ -64,6 +64,9 @@ export function buildActions(): CompanionActionDefinitions {
 		if (!Array.isArray(cmdSchema)) continue
 
 		for (const a of cmdSchema) {
+			// Skip read-only entries — they are feedback-only (indicators, status)
+			if (a.readonly === true) continue
+
 			const actionId = makeSettingId(model, a.cmd_id, a.id)
 
 			const options = (a.options ?? []).map(buildOption)
